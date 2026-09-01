@@ -1,0 +1,422 @@
+// Cash Integrity Controller — Prisma Schema
+// All monetary values stored as integer paise (minor units). NEVER use Float.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// Core Entities
+// ============================================
+
+model Customer {
+  id              String   @id @default(uuid())
+  displayName     String   // pseudonymous
+  maskedEmail     String?
+  maskedPhone     String?
+  consentSms      Boolean  @default(false)
+  consentEmail    Boolean  @default(false)
+  consentWhatsApp Boolean  @default(false)
+  consentVoice    Boolean  @default(false)
+  optedOut        Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  orders           Order[]
+  invoices         Invoice[]
+  checkoutSessions CheckoutSession[]
+  communications   Communication[]
+  promiseToPays    PromiseToPay[]
+}
+
+model Order {
+  id              String   @id @default(uuid())
+  orderId         String   @unique // external order ID
+  customerId      String
+  cartValuePaise  Int      // integer paise
+  status          String   // created, attempted, paid, cancelled
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  customer         Customer          @relation(fields: [customerId], references: [id])
+  paymentAttempts  PaymentAttempt[]
+  checkoutSessions CheckoutSession[]
+}
+
+model CheckoutSession {
+  id                String   @id @default(uuid())
+  sessionId         String   @unique
+  customerId        String
+  orderId           String?
+  stageReached      String   // landing, cart, address, payment_method, payment_initiated, completed
+  cartValuePaise    Int
+  paymentMethod     String?  // upi, card, netbanking, wallet
+  abandonmentStatus String?  // null, low_intent, high_intent
+  consentGiven      Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id])
+  order    Order?   @relation(fields: [orderId], references: [id])
+}
+
+model PaymentAttempt {
+  id              String   @id @default(uuid())
+  providerId      String   @unique // razorpay payment ID e.g. pay_xxx
+  orderId         String
+  amountPaise     Int      // integer paise
+  method          String   // card, upi, netbanking, wallet, emandate
+  status          String   // created, authorized, captured, failed, refunded
+  failureCode     String?  // e.g. BAD_REQUEST_ERROR
+  failureCategory String?  // transient, insufficient_funds, hard_decline, expired, revoked_mandate, network_error
+  gatewayResponse String?  // raw JSON string
+  attemptedAt     DateTime @default(now())
+  capturedAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  order           Order            @relation(fields: [orderId], references: [id])
+  settlementLines SettlementLine[]
+}
+
+model Invoice {
+  id                String   @id @default(uuid())
+  invoiceId         String   @unique // external invoice ID e.g. INV-xxx
+  customerId        String
+  dueDate           DateTime
+  grossAmountPaise  Int
+  netAmountPaise    Int
+  outstandingPaise  Int
+  gstAmountPaise    Int      @default(0)
+  tdsApplicable     Boolean  @default(false)
+  tdsBasePaise      Int?     // declared TDS base
+  tdsRate           Float?   // percentage e.g. 0.01, 0.02, 0.10
+  tdsRuleId         String?
+  disputeStatus     String?  // null, raised, resolved
+  status            String   // draft, sent, overdue, partial, paid, disputed, cancelled
+  rawPayload        String?  // original extracted text
+  payloadHash       String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  customer    Customer      @relation(fields: [customerId], references: [id])
+  tdsRule     TdsRule?      @relation(fields: [tdsRuleId], references: [id])
+  tdsEvidence TdsEvidence[]
+}
+
+model Settlement {
+  id                     String   @id @default(uuid())
+  settlementId           String   @unique // external settlement ID e.g. set_xxx
+  grossAmountPaise       Int
+  feePaise               Int      @default(0)
+  taxPaise               Int      @default(0)
+  adjustmentPaise        Int      @default(0)
+  netAmountPaise         Int
+  status                 String   // created, processed, settled, on_hold
+  expectedSettlementDate DateTime?
+  settledAt              DateTime?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  lines SettlementLine[]
+}
+
+model SettlementLine {
+  id               String @id @default(uuid())
+  settlementId     String
+  paymentAttemptId String
+  grossPaise       Int
+  feePaise         Int    @default(0)
+  taxPaise         Int    @default(0)
+  netPaise         Int
+
+  settlement     Settlement     @relation(fields: [settlementId], references: [id])
+  paymentAttempt PaymentAttempt @relation(fields: [paymentAttemptId], references: [id])
+}
+
+model TdsRule {
+  id            String   @id @default(uuid())
+  ruleId        String   @unique // e.g. TDS-194C-1PCT
+  section       String   // e.g. 194C, 194J — configurable label
+  ratePercent   Float    // 0.01, 0.02, 0.10
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+  description   String?
+  createdAt     DateTime @default(now())
+
+  invoices    Invoice[]
+  tdsEvidence TdsEvidence[]
+}
+
+model TdsEvidence {
+  id              String   @id @default(uuid())
+  invoiceId       String
+  tdsRuleId       String
+  declaredBasePaise Int
+  expectedTdsPaise  Int
+  actualTdsPaise    Int?
+  payerReference  String?  // PAN reference, deductor name
+  reviewStatus    String   @default("pending") // pending, verified, rejected
+  createdAt       DateTime @default(now())
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+  tdsRule TdsRule @relation(fields: [tdsRuleId], references: [id])
+}
+
+model BankTransaction {
+  id               String   @id @default(uuid())
+  transactionDate  DateTime
+  narration        String
+  utr              String?  // UTR/reference
+  creditPaise      Int      @default(0)
+  debitPaise       Int      @default(0)
+  amountPaise      Int      // absolute value
+  type             String   // credit, debit
+  sourceAccount    String   // account token/identifier
+  rawPayload       String?
+  payloadHash      String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+// ============================================
+// Recovery & Operations
+// ============================================
+
+model RecoveryCase {
+  id                     String   @id @default(uuid())
+  caseNumber             String   @unique // e.g. CIC-AR-0042
+  cashState              String   // matched, matched_with_tds, waiting_for_settlement, recoverable, finance_review, risk_hold, promise_to_pay, closed
+  priority               String   // critical, high, medium, low
+  outstandingAmountPaise Int
+  grossAmountPaise       Int?
+  expectedNetAmountPaise Int?
+  observedBankAmountPaise Int?
+  diagnosisCode          String   // from taxonomy
+  diagnosisText          String
+  confidence             Float
+  evidenceRefs           String   // JSON array of IDs
+  policySnapshotVersion  String?
+  allowedActions         String   // JSON array
+  blockedActions         String   // JSON array of {action, reasons[]}
+  closedReason           String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  reconciliationMatches ReconciliationMatch[]
+  policyDecisions       PolicyDecision[]
+  recoveryActions       RecoveryAction[]
+  promiseToPays         PromiseToPay[]
+  evidenceEdges         EvidenceEdge[]
+  auditEvents           AuditEvent[]
+  riskSignals           RiskSignal[]
+  experimentAssignment  ExperimentAssignment?
+}
+
+model EvidenceEdge {
+  id             String   @id @default(uuid())
+  recoveryCaseId String
+  sourceType     String   // payment, invoice, settlement, bank_transaction, checkout, communication
+  sourceId       String
+  targetType     String
+  targetId       String
+  edgeType       String   // exact_id, composite, grouped_settlement, tds_match, ai_candidate, exception
+  ruleId         String?
+  confidence     Float
+  explanation    String
+  sourceRefs     String   // JSON array
+  createdAt      DateTime @default(now())
+
+  recoveryCase RecoveryCase @relation(fields: [recoveryCaseId], references: [id])
+}
+
+model ReconciliationMatch {
+  id               String   @id @default(uuid())
+  recoveryCaseId   String
+  status           String   // auto_matched, review_required, confirmed, rejected, exception
+  ruleTier         String   // tier_a, tier_b, tier_c, tier_c5, tier_d, tier_e
+  candidateScore   Float?
+  mathExplanation  String   // human-readable calculation
+  reviewerDecision String?  // approved, rejected
+  reviewerNote     String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  recoveryCase RecoveryCase @relation(fields: [recoveryCaseId], references: [id])
+}
+
+model Policy {
+  id            String   @id @default(uuid())
+  version       String   @unique // e.g. 1.0-demo
+  config        String   // JSON policy config
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  decisions PolicyDecision[]
+}
+
+model PolicyDecision {
+  id             String   @id @default(uuid())
+  recoveryCaseId String
+  policyId       String
+  action         String   // send_payment_link, retry_payment, send_reminder, voice_call, etc.
+  allowed        Boolean
+  gatesPassed    String   // JSON array
+  gatesFailed    String   // JSON array
+  expiresAt      DateTime?
+  createdAt      DateTime @default(now())
+
+  recoveryCase RecoveryCase @relation(fields: [recoveryCaseId], references: [id])
+  policy       Policy       @relation(fields: [policyId], references: [id])
+}
+
+model RecoveryAction {
+  id              String   @id @default(uuid())
+  recoveryCaseId  String
+  actionType      String   // payment_link, retry, reminder_sms, reminder_email, reminder_whatsapp, voice_call, propose_rail_switch
+  idempotencyKey  String   @unique
+  status          String   // proposed, approved, executing, completed, failed, cancelled, simulated
+  isSimulated     Boolean  @default(true)
+  executionReceipt String? // JSON: provider response, link URL, etc.
+  outcomeReference String? // payment ID or event that resolved this
+  expiresAt        DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  recoveryCase RecoveryCase @relation(fields: [recoveryCaseId], references: [id])
+}
+
+model Communication {
+  id              String   @id @default(uuid())
+  customerId      String
+  channel         String   // sms, email, whatsapp, voice
+  templateId      String?
+  templateVersion String?
+  consentEvidence String?  // JSON
+  deliveryStatus  String   // queued, sent, delivered, failed, opted_out
+  optOutStatus    Boolean  @default(false)
+  content         String?  // rendered message (no secrets)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id])
+}
+
+model PromiseToPay {
+  id            String   @id @default(uuid())
+  recoveryCaseId String
+  customerId    String
+  amountPaise   Int
+  promisedDate  DateTime
+  source        String   // voice, chat, manual, browser_demo
+  transcript    String?  // customer wording
+  state         String   // active, kept, broken, cancelled
+  graceDays     Int      @default(1)
+  resolvedAt    DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  recoveryCase RecoveryCase @relation(fields: [recoveryCaseId], references: [id])
+  customer     Customer     @relation(fields: [customerId], references: [id])
+}
+
+model RiskSignal {
+  id             String   @id @default(uuid())
+  recoveryCaseId String
+  signalType     String   // duplicate_attempt, cross_method, settlement_hold, duplicate_credit, refund_after_recovery
+  description    String
+  severity       String   // low, medium, high
+  score          Float    @default(0) // 0.0–1.0 risk score for firewall gate evaluation
+  reviewStatus   String   @default("pending") // pending, reviewed, dismissed
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  recoveryCase RecoveryCase @relation(fields: [recoveryCaseId], references: [id])
+}
+
+model AuditEvent {
+  id               String   @id @default(uuid())
+  caseId           String?
+  actor            String   // system, policy-engine, user, ai-agent, webhook
+  actorVersion     String   @default("1.0-demo")
+  eventType        String   // MATCH_CREATED, ACTION_PROPOSED, ACTION_BLOCKED, ACTION_EXECUTED, PTP_CREATED, PTP_KEPT, PTP_BROKEN, STATE_CHANGE, etc.
+  inputRecordRefs  String   // JSON array of record IDs
+  ruleOrPromptVersion String?
+  decision         String?  // JSON: {action, allowed, ...}
+  reasons          String   // JSON array
+  policySnapshot   String?
+  metadata         String?  // JSON: additional context
+  createdAt        DateTime @default(now())
+
+  recoveryCase RecoveryCase? @relation(fields: [caseId], references: [id])
+}
+
+model ExperimentAssignment {
+  id             String   @id @default(uuid())
+  recoveryCaseId String   @unique
+  cohort         String   // treatment, holdout
+  assignedAt     DateTime @default(now())
+
+  recoveryCase RecoveryCase @relation(fields: [recoveryCaseId], references: [id])
+}
+
+// ============================================
+// Ingestion tracking
+// ============================================
+
+model IngestionRecord {
+  id          String   @id @default(uuid())
+  batchId     String
+  sourceType  String   // gateway, invoice, settlement, bank_statement, checkout, communication
+  rawPayload  String   // original JSON/CSV row
+  payloadHash String   // SHA-256 hash
+  status      String   // ingested, rejected, duplicate
+  rejectReason String?
+  entityId    String?  // ID of the created entity
+  entityType  String?  // which model was created
+  createdAt   DateTime @default(now())
+}
+
+model IngestionBatch {
+  id            String   @id @default(uuid())
+  sourceLabel   String   // "seeded_demo" or "user_upload"
+  totalRecords  Int
+  ingested      Int      @default(0)
+  rejected      Int      @default(0)
+  duplicates    Int      @default(0)
+  status        String   // processing, completed, failed
+  startedAt     DateTime @default(now())
+  completedAt   DateTime?
+  elapsedMs     Int?
+}
+
+// ============================================
+// Forward Cash Forecast
+// ============================================
+
+model ForecastRun {
+  id                    String   @id @default(uuid())
+  asOfTimestamp         DateTime @default(now())
+  settledBankCashPaise  Int
+  pendingSettlementPaise Int
+  weightedPtpPaise      Int
+  weightedRecoveryPaise Int
+  excludedCashPaise     Int
+  day7LowPaise          Int
+  day7BasePaise         Int
+  day7HighPaise         Int
+  day14LowPaise         Int
+  day14BasePaise        Int
+  day14HighPaise        Int
+  day30LowPaise         Int
+  day30BasePaise        Int
+  day30HighPaise        Int
+  contributingCases     String   // JSON
+  createdAt             DateTime @default(now())
+}
