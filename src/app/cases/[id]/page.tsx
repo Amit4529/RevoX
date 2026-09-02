@@ -64,6 +64,17 @@ export default function CaseFilePage() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Auto-refresh every 10 seconds — silent (no loading spinner)
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/cases/${id}`);
+        if (res.ok) setData(await res.json());
+      } catch { /* silent */ }
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [id]);
+
   const submitReview = async () => {
     if (!reviewAction || !reviewReason) return;
     setReviewStatus('submitting');
@@ -148,6 +159,37 @@ export default function CaseFilePage() {
         </div>
 
         <div className="page-body">
+
+          {/* Active Promise-to-Pay Banner */}
+          {data.promiseToPays?.some((p: any) => p.state === 'active') && (
+            <div style={{
+              marginBottom: 20,
+              padding: 16,
+              background: 'rgba(8, 145, 178, 0.08)',
+              border: '1px solid rgba(8, 145, 178, 0.3)',
+              borderRadius: 8,
+              display: 'flex',
+              gap: 16,
+              alignItems: 'center'
+            }}>
+              <div style={{ fontSize: 28 }}>🤝</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#0891B2', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Active Promise-to-Pay
+                  </span>
+                  <span className="badge badge-blue">Dunning Paused</span>
+                </div>
+                <div style={{ fontSize: 12.5, color: 'var(--text-primary)', lineHeight: 1.5 }}>
+                  Customer promised to pay <strong>{formatPaise(data.promiseToPays.find((p: any) => p.state === 'active')?.amountPaise || data.outstandingAmountPaise)}</strong> by <strong>{new Date(data.promiseToPays.find((p: any) => p.state === 'active')?.promisedDate).toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' })}</strong>.
+                </div>
+                <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4 }}>
+                  ⏱ All automated recovery actions paused. Agent will follow up automatically if payment not received by promised date + 1 day grace.
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="two-col" style={{ marginBottom: 20 }}>
 
             {/* Diagnosis Panel */}
@@ -474,9 +516,26 @@ function SettlementQA({ caseId }: { caseId: string }) {
             )}
           </div>
 
-          {/* Answer text */}
-          <div style={{ fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.65, marginBottom: 12 }}>
-            {answer.answer}
+          {/* Answer text — render formatted */}
+          <div style={{ fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.8, marginBottom: 12 }}>
+            {(answer.answer ?? '').split('\n').map((line: string, i: number) => {
+              // Bold markers
+              const parts = line.split(/\*\*(.*?)\*\*/g);
+              const rendered = parts.map((part: string, j: number) =>
+                j % 2 === 1
+                  ? <strong key={j} style={{ color: 'var(--text-primary)' }}>{part}</strong>
+                  : <span key={j}>{part}</span>
+              );
+              const isBullet = line.trim().startsWith('•');
+              return (
+                <div key={i} style={{
+                  paddingLeft: isBullet ? 16 : 0,
+                  marginBottom: line.trim() === '' ? 6 : 2,
+                }}>
+                  {rendered}
+                </div>
+              );
+            })}
           </div>
 
           {/* Calculation block */}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Sidebar from '@/components/Sidebar';
 
 function formatPaise(paise: number): string {
@@ -93,11 +93,24 @@ export default function MetricsPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const loadMetrics = useCallback(() => {
     fetch('/api/metrics')
       .then(r => r.json())
       .then(d => { setData(d); setLoading(false); })
       .catch(() => setLoading(false));
+  }, []);
+
+  useEffect(() => { loadMetrics(); }, [loadMetrics]);
+
+  // Auto-refresh every 10 seconds — silent (no loading spinner)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetch('/api/metrics')
+        .then(r => r.json())
+        .then(d => setData(d))
+        .catch(() => { /* silent */ });
+    }, 10000);
+    return () => clearInterval(interval);
   }, []);
 
   const m = data?.metrics;

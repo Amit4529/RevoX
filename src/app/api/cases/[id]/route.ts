@@ -84,12 +84,21 @@ export async function PATCH(
     const recoveryCase = await prisma.recoveryCase.findUnique({ where: { id } });
     if (!recoveryCase) return NextResponse.json({ error: 'Case not found' }, { status: 404 });
 
-    if (action === 'override' && newCashState) {
-      await prisma.recoveryCase.update({
-        where: { id },
-        data: { cashState: newCashState },
-      });
+    // Determine new state based on action
+    let targetState = recoveryCase.cashState;
+    if (action === 'approve') {
+      targetState = 'closed';
+    } else if (action === 'reject') {
+      targetState = 'finance_review';
+    } else if (action === 'override' && newCashState) {
+      targetState = newCashState;
     }
+
+    // Update case state
+    await prisma.recoveryCase.update({
+      where: { id },
+      data: { cashState: targetState },
+    });
 
     const audit = await prisma.auditEvent.create({
       data: {

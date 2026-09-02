@@ -52,6 +52,21 @@ export default function CommandCenter() {
 
   useEffect(() => { loadDashboard(); }, [loadDashboard]);
 
+  // Auto-refresh every 10 seconds — silent (no loading spinner)
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const [d, f] = await Promise.all([
+          fetch('/api/dashboard').then(r => r.json()),
+          fetch('/api/forecast').then(r => r.json()),
+        ]);
+        setDashboard(d);
+        setForecast(f);
+      } catch { /* silent */ }
+    }, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
   const handleRun = async () => {
     setRunStatus('loading');
     setRunMsg('Running reconciliation engine…');

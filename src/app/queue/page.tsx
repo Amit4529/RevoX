@@ -81,6 +81,23 @@ export default function QueuePage() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Auto-refresh every 10 seconds — silent (no loading spinner)
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const params = new URLSearchParams({ limit: '100' });
+        if (stateFilter) params.set('cashState', stateFilter);
+        if (priorityFilter) params.set('priority', priorityFilter);
+        const data = await fetch(`/api/cases?${params}`).then(r => r.json());
+        let rows = data.cases ?? [];
+        if (safeOnly) rows = rows.filter((c: any) => SAFE_STATES.has(c.cashState));
+        setCases(rows);
+        setTotal(data.total ?? rows.length);
+      } catch { /* silent */ }
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [stateFilter, priorityFilter, safeOnly]);
+
   return (
     <div className="app-shell">
       <Sidebar />

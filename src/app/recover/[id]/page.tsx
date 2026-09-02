@@ -52,7 +52,7 @@ export default function RecoveryPanel() {
         const scoresRes = await fetch(`/api/actions?caseId=${id}`);
         if (scoresRes.ok) {
           const scoresData = await scoresRes.json();
-          setScores(scoresData.allowed ?? []);
+          setScores(scoresData.scores ?? []);
         }
       }
     } catch { /* ignore */ }
@@ -60,6 +60,28 @@ export default function RecoveryPanel() {
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Auto-refresh every 10 seconds — silent (no loading spinner)
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const [c, p] = await Promise.all([
+          fetch(`/api/cases/${id}`).then(r => r.json()),
+          fetch(`/api/playbook?caseId=${id}`).then(r => r.json()),
+        ]);
+        setCaseData(c);
+        setPlan(p.plan);
+        if (c.allowedActions?.length > 0) {
+          const scoresRes = await fetch(`/api/actions?caseId=${id}`);
+          if (scoresRes.ok) {
+            const scoresData = await scoresRes.json();
+            setScores(scoresData.scores ?? []);
+          }
+        }
+      } catch { /* silent */ }
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [id]);
 
   const executeAction = async (actionType: string) => {
     setExecuting(true);
@@ -238,6 +260,36 @@ export default function RecoveryPanel() {
 
         <div className="page-body">
 
+          {/* Active Promise-to-Pay Banner */}
+          {caseData?.promiseToPays?.some((p: any) => p.state === 'active') && (
+            <div style={{
+              marginBottom: 20,
+              padding: 16,
+              background: 'rgba(8, 145, 178, 0.08)',
+              border: '1px solid rgba(8, 145, 178, 0.3)',
+              borderRadius: 8,
+              display: 'flex',
+              gap: 16,
+              alignItems: 'center'
+            }}>
+              <div style={{ fontSize: 28 }}>🤝</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#0891B2', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Active Promise-to-Pay (PTP) On File
+                  </span>
+                  <span className="badge badge-blue">Dunning Paused</span>
+                </div>
+                <div style={{ fontSize: 12.5, color: 'var(--text-primary)', lineHeight: 1.5 }}>
+                  Customer committed to pay <strong>{formatPaise(caseData.promiseToPays.find((p: any) => p.state === 'active')?.amountPaise || caseData.outstandingAmountPaise)}</strong> by <strong>{new Date(caseData.promiseToPays.find((p: any) => p.state === 'active')?.promisedDate).toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' })}</strong> (via {caseData.promiseToPays.find((p: any) => p.state === 'active')?.source}).
+                </div>
+                <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4 }}>
+                  ⏱ <strong>Automated Agent Policy:</strong> All automated reminders and calls are paused. If payment is not received by the promised date (+ 1 day grace), the recovery agent will automatically trigger follow-up at the escalation stage.
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Execution Result */}
           {execResult && (
             <div className={`alert ${execResult.success ? 'alert-success' : execResult._status === 403 ? 'alert-warning' : 'alert-danger'}`} style={{ marginBottom: 20 }}>
@@ -372,22 +424,115 @@ export default function RecoveryPanel() {
                     <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
                       Executed Actions
                     </div>
-                    {caseData.recoveryActions.map((a: any) => (
-                      <div key={a.id} style={{ padding: '8px 0', borderBottom: '1px solid var(--border)', fontSize: 12.5 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
-                          <span className="mono" style={{ fontWeight: 600 }}>{a.actionType}</span>
-                          <span className={`badge ${a.status === 'completed' ? 'badge-green' : 'badge-amber'}`}>{a.status}</span>
-                        </div>
-                        {a.executionReceipt && (
-                          <div className="mono" style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                            Receipt: {a.executionReceipt}
+                    {caseData.recoveryActions.map((a: any) => {
+                      // Extract payment link URL from receipt
+                      let linkUrl = '';
+                      let linkId = '';
+                      if (a.actionType === 'payment_link' && a.executionReceipt) {
+                        try {
+                          const receiptStr = typeof a.executionReceipt === 'string' ? a.executionReceipt : JSON.stringify(a.executionReceipt);
+                          const receiptData = JSON.parse(receiptStr);
+                          linkUrl = receiptData.linkUrl || '';
+                          linkId = receiptData.linkId || '';
+                        } catch {
+                          // Try to extract URL from string
+                          const urlMatch = String(a.executionReceipt).match(/https?:\/\/[^\s"]+/);
+                          if (urlMatch) linkUrl = urlMatch[0];
+                        }
+                      }
+
+                      return (
+                        <div key={a.id} style={{ padding: '10px 0', borderBottom: '1px solid var(--border)', fontSize: 12.5 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                            <span className="mono" style={{ fontWeight: 600 }}>{a.actionType}</span>
+                            <span className={`badge ${a.status === 'completed' ? 'badge-green' : 'badge-amber'}`}>{a.status}</span>
                           </div>
-                        )}
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                          {new Date(a.createdAt).toLocaleString('en-IN')}
+
+                          {/* Show clickable payment link */}
+                          {linkUrl && (
+                            <div style={{ margin: '8px 0', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                              <a
+                                href={linkUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="btn btn-primary btn-sm"
+                                style={{ fontSize: 11, padding: '6px 14px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                              >
+                                🔗 Open Payment Link
+                              </a>
+                              <span style={{ fontSize: 10.5, color: 'var(--text-muted)', alignSelf: 'center' }}>
+                                {linkUrl}
+                              </span>
+                            </div>
+                          )}
+
+                          {a.executionReceipt && !linkUrl && (
+                            <div className="mono" style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                              Receipt: {typeof a.executionReceipt === 'object' ? JSON.stringify(a.executionReceipt) : a.executionReceipt}
+                            </div>
+                          )}
+                          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                            {new Date(a.createdAt).toLocaleString('en-IN')}
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {/* Simulate Payment Button — show when there's a payment_link action and case isn't closed */}
+                    {caseData.recoveryActions.some((a: any) => a.actionType === 'payment_link') && caseData.cashState !== 'closed' && (
+                      <div style={{ marginTop: 12, padding: 12, background: 'rgba(5, 150, 105, 0.08)', borderRadius: 8, border: '1px solid rgba(5, 150, 105, 0.2)' }}>
+                        <div style={{ fontSize: 11, color: '#059669', fontWeight: 600, marginBottom: 6 }}>
+                          💰 DEMO: Simulate Customer Payment
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8 }}>
+                          Click below to simulate the customer completing payment. This triggers the same flow as a real Razorpay webhook.
+                        </div>
+                        <button
+                          id="btn-simulate-payment"
+                          className="btn btn-sm"
+                          style={{
+                            background: 'linear-gradient(135deg, #059669, #10B981)',
+                            color: 'white',
+                            border: 'none',
+                            padding: '8px 20px',
+                            fontSize: 12,
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                          }}
+                          onClick={async () => {
+                            try {
+                              const res = await fetch('/api/simulate-payment', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ caseId: id }),
+                              });
+                              const data = await res.json();
+                              if (data.success) {
+                                alert(`✅ ${data.message}`);
+                                load(); // Refresh data
+                              } else {
+                                alert(`❌ ${data.error}`);
+                              }
+                            } catch (err) {
+                              alert(`❌ Failed: ${err}`);
+                            }
+                          }}
+                        >
+                          ✅ Simulate Payment Received ({formatPaise(caseData.outstandingAmountPaise)})
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Show recovery success when closed */}
+                    {caseData.cashState === 'closed' && caseData.recoveryActions.some((a: any) => a.actionType === 'payment_link') && (
+                      <div style={{ marginTop: 12, padding: 12, background: 'rgba(5, 150, 105, 0.12)', borderRadius: 8, border: '1px solid rgba(5, 150, 105, 0.3)', textAlign: 'center' }}>
+                        <div style={{ fontSize: 18, marginBottom: 4 }}>🎉</div>
+                        <div style={{ fontSize: 13, color: '#059669', fontWeight: 700 }}>Recovery Completed</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+                          Payment received. Case {caseData.caseNumber} has been resolved and closed.
                         </div>
                       </div>
-                    ))}
+                    )}
                   </>
                 )}
               </div>

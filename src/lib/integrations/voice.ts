@@ -175,12 +175,13 @@ export class TwilioVoiceAdapter implements VoiceProvider {
       const accountSid = process.env.TWILIO_ACCOUNT_SID!;
       const authToken = process.env.TWILIO_AUTH_TOKEN!;
       const fromNumber = process.env.TWILIO_FROM_NUMBER!;
-      const webhookUrl = `${process.env.APP_BASE_URL || 'http://localhost:3000'}/api/webhook/twilio`;
+      const amountStr = `₹${(input.amountPaise / 100).toFixed(2)}`;
+      const callUrl = `${process.env.APP_BASE_URL || 'http://localhost:3000'}/api/webhook/twilio?caseId=${encodeURIComponent(input.caseId)}&caseNumber=${encodeURIComponent(input.caseNumber)}&amount=${encodeURIComponent(amountStr)}`;
 
       const params = new URLSearchParams();
       params.append('To', toNumber);
       params.append('From', fromNumber);
-      params.append('Twiml', generateTwiML(script, webhookUrl));
+      params.append('Url', callUrl);
 
       const response = await fetch(
         `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Calls.json`,

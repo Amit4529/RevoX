@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
+import { useState, useEffect } from 'react';
+
 interface IntegrationStatus {
   demoMode: boolean;
   razorpayTestMode: boolean;
@@ -26,18 +28,33 @@ const SETTINGS_ITEMS = [
 
 export default function Sidebar({ integrationStatus }: SidebarProps) {
   const pathname = usePathname();
+  const [liveStatus, setLiveStatus] = useState<IntegrationStatus | null>(integrationStatus ?? null);
+
+  useEffect(() => {
+    if (!integrationStatus) {
+      fetch('/api/dashboard')
+        .then(r => r.json())
+        .then(d => {
+          if (d.integrationStatus) setLiveStatus(d.integrationStatus);
+        })
+        .catch(() => {});
+    } else {
+      setLiveStatus(integrationStatus);
+    }
+  }, [integrationStatus]);
 
   const isActive = (href: string) => {
     if (href === '/') return pathname === '/';
     return pathname.startsWith(href);
   };
 
-  const status = integrationStatus ?? {
+  const status = liveStatus ?? {
     demoMode: true,
     razorpayTestMode: false,
     voiceSimulator: true,
     twilioEnabled: false,
   };
+
 
   return (
     <aside className="sidebar">
