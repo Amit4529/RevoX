@@ -509,25 +509,32 @@ export async function previewPlaybook(
   prisma: PrismaClient,
   caseId: string,
 ): Promise<PlaybookPlan | null> {
-  const recoveryCase = await prisma.recoveryCase.findUnique({
+  let recoveryCase = await prisma.recoveryCase.findUnique({
     where: { id: caseId },
   });
+  // Fallback: try finding by caseNumber
+  if (!recoveryCase) {
+    recoveryCase = await prisma.recoveryCase.findFirst({
+      where: { caseNumber: caseId },
+    });
+  }
 
   if (!recoveryCase) return null;
 
+  const resolvedId = recoveryCase.id;
   const playbook = selectPlaybook(recoveryCase.diagnosisCode);
   const policy = await loadPolicy(prisma);
 
   switch (playbook) {
-    case 'A': return playbookA(prisma, caseId, policy);
-    case 'B': return playbookB(prisma, caseId, policy);
-    case 'C': return playbookC(prisma, caseId, policy);
-    case 'D': return playbookD(prisma, caseId, policy);
+    case 'A': return playbookA(prisma, resolvedId, policy);
+    case 'B': return playbookB(prisma, resolvedId, policy);
+    case 'C': return playbookC(prisma, resolvedId, policy);
+    case 'D': return playbookD(prisma, resolvedId, policy);
     default:
       return {
         playbookId: 'none',
         playbookLabel: 'No Playbook — ' + getDiagnosis(recoveryCase.diagnosisCode).label,
-        caseId,
+        caseId: resolvedId,
         diagnosisCode: recoveryCase.diagnosisCode,
         steps: [{
           stepNumber: 1,
@@ -606,9 +613,14 @@ export async function executeRecoveryAction(
   executionParams?: Record<string, unknown>
 ): Promise<PlaybookResult> {
   // Step 1: Load the case
-  const recoveryCase = await prisma.recoveryCase.findUnique({
+  let recoveryCase = await prisma.recoveryCase.findUnique({
     where: { id: caseId },
   });
+  if (!recoveryCase) {
+    recoveryCase = await prisma.recoveryCase.findFirst({
+      where: { caseNumber: caseId },
+    });
+  }
 
   if (!recoveryCase) {
     return {
@@ -622,8 +634,10 @@ export async function executeRecoveryAction(
     };
   }
 
+  const resolvedCaseId = recoveryCase.id;
+
   // Step 2: Run through firewall
-  const { allowed, blocked } = await evaluateAllActions(prisma, caseId);
+  const { allowed, blocked } = await evaluateAllActions(prisma, resolvedCaseId);
   const isAllowed = allowed.some(a => a.action === requestedAction);
   const blockedDecision = blocked.find(b => b.action === requestedAction);
 

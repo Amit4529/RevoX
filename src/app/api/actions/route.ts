@@ -46,16 +46,23 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Missing caseId parameter' }, { status: 400 });
     }
 
-    const recoveryCase = await prisma.recoveryCase.findUnique({
+    let recoveryCase = await prisma.recoveryCase.findUnique({
       where: { id: caseId },
     });
+    if (!recoveryCase) {
+      recoveryCase = await prisma.recoveryCase.findFirst({
+        where: { caseNumber: caseId },
+      });
+    }
 
     if (!recoveryCase) {
       return NextResponse.json({ error: 'Case not found' }, { status: 404 });
     }
 
+    const resolvedCaseId = recoveryCase.id;
+
     // Evaluate all actions through firewall
-    const { allowed, blocked } = await evaluateAllActions(prisma, caseId);
+    const { allowed, blocked } = await evaluateAllActions(prisma, resolvedCaseId);
 
     // Score the allowed actions
     const allowedActionNames = allowed.map(a => a.action);
@@ -69,7 +76,7 @@ export async function GET(request: Request) {
 
     // Get past actions for this case
     const pastActions = await prisma.recoveryAction.findMany({
-      where: { recoveryCaseId: caseId },
+      where: { recoveryCaseId: resolvedCaseId },
       orderBy: { createdAt: 'desc' },
     });
 

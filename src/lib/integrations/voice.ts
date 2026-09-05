@@ -179,14 +179,14 @@ export class TwilioVoiceAdapter implements VoiceProvider {
       const fromNumber = process.env.TWILIO_FROM_NUMBER!;
       const amountStr = `₹${(input.amountPaise / 100).toFixed(2)}`;
 
-      // Build inline TwiML — no tunnel/webhook needed!
-      // This sends the full Hinglish script directly via Twilio's API.
-      const twiml = `<Response><Say language="hi-IN" voice="Polly.Aditi">${escapeXml(script)}</Say><Pause length="1"/><Say language="hi-IN" voice="Polly.Aditi">Payment link ke liye 1, promise ke liye 2, support ke liye 3, opt out ke liye 9 dabaiye.</Say><Pause length="8"/><Say language="hi-IN" voice="Polly.Aditi">Dhanyavaad. Aapka response record ho gaya hai. Hum aapko jaldi update denge.</Say></Response>`;
+      // Build TwiML served via twimlets.com/echo so Twilio accepts it as a public Url parameter (trial-account compatible)
+      const twiml = `<Response><Say language="hi-IN">${escapeXml(script)}</Say><Pause length="1"/><Say language="hi-IN">Payment link ke liye 1, promise ke liye 2, support ke liye 3, opt out ke liye 9 dabaiye.</Say><Pause length="8"/><Say language="hi-IN">Dhanyavaad. Aapka response record ho gaya hai. Hum aapko jaldi update denge.</Say></Response>`;
+      const twimletUrl = `https://twimlets.com/echo?Twiml=${encodeURIComponent(twiml)}`;
 
       const params = new URLSearchParams();
       params.append('To', toNumber);
       params.append('From', fromNumber);
-      params.append('Twiml', twiml);
+      params.append('Url', twimletUrl);
 
       const response = await fetch(
         `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Calls.json`,
@@ -301,14 +301,19 @@ export async function startVoiceCall(
   prisma: PrismaClient,
   caseId: string,
 ): Promise<VoiceCallReceipt> {
-  const recoveryCase = await prisma.recoveryCase.findUnique({ where: { id: caseId } });
+  let recoveryCase = await prisma.recoveryCase.findUnique({ where: { id: caseId } });
+  // Fallback: try finding by caseNumber
+  if (!recoveryCase) {
+    recoveryCase = await prisma.recoveryCase.findFirst({ where: { caseNumber: caseId } });
+  }
   if (!recoveryCase) {
     return { success: false, simulated: true, callId: '', provider: 'browser', script: '', status: 'failed', receipt: '', error: 'Case not found' };
   }
 
+  const resolvedId = recoveryCase.id;
   const provider = getVoiceProvider();
   const input: VoiceCallInput = {
-    caseId,
+    caseId: resolvedId,
     caseNumber: recoveryCase.caseNumber,
     customerName: 'Customer',
     amountPaise: recoveryCase.outstandingAmountPaise,
@@ -319,10 +324,10 @@ export async function startVoiceCall(
   const result = await provider.startCall(input);
 
   // Create recovery action
-  const idempotencyKey = `voice-${caseId}-${Date.now()}`;
+  const idempotencyKey = `voice-${resolvedId}-${Date.now()}`;
   await prisma.recoveryAction.create({
     data: {
-      recoveryCaseId: caseId,
+      recoveryCaseId: resolvedId,
       actionType: 'voice_call',
       idempotencyKey,
       status: result.success ? 'executing' : 'failed',
@@ -335,11 +340,11 @@ export async function startVoiceCall(
   // Audit event
   await prisma.auditEvent.create({
     data: {
-      caseId,
+      caseId: resolvedId,
       actor: result.provider === 'twilio' ? 'twilio-adapter' : 'browser-voice',
       actorVersion: '1.0-demo',
       eventType: 'ACTION_EXECUTED',
-      inputRecordRefs: JSON.stringify([caseId]),
+      inputRecordRefs: JSON.stringify([resolvedId]),
       ruleOrPromptVersion: result.provider,
       decision: JSON.stringify({ action: 'voice_call', callId: result.callId, provider: result.provider }),
       reasons: JSON.stringify([result.simulated ? 'Browser voice simulation initiated' : 'Twilio outbound call placed']),
@@ -360,19 +365,24 @@ export async function processVoiceResponse(
   response: CustomerVoiceResponse,
   transcript?: string,
 ): Promise<{ success: boolean; message: string; ptpProposed?: boolean; ptpDate?: string; ptpCaptured?: boolean; paymentLinkUrl?: string }> {
-  const recoveryCase = await prisma.recoveryCase.findUnique({ where: { id: caseId } });
+  let recoveryCase = await prisma.recoveryCase.findUnique({ where: { id: caseId } });
+  if (!recoveryCase) {
+    recoveryCase = await prisma.recoveryCase.findFirst({ where: { caseNumber: caseId } });
+  }
   if (!recoveryCase) {
     return { success: false, message: 'Case not found' };
   }
+  // Use the actual UUID for all downstream operations
+  const resolvedCaseId = recoveryCase.id;
 
   // Audit the response
   await prisma.auditEvent.create({
     data: {
-      caseId,
+      caseId: resolvedCaseId,
       actor: 'voice-response',
       actorVersion: '1.0-demo',
       eventType: 'VOICE_RESPONSE_RECEIVED',
-      inputRecordRefs: JSON.stringify([caseId, callId]),
+      inputRecordRefs: JSON.stringify([resolvedCaseId, callId]),
       ruleOrPromptVersion: 'voice-response-handler',
       decision: JSON.stringify({ response, transcript }),
       reasons: JSON.stringify([`Customer response: ${response}`]),
@@ -397,7 +407,7 @@ export async function processVoiceResponse(
       let linkUrl = '';
       let linkId = '';
       try {
-        const linkResult = await createRecoveryPaymentLink(prisma, caseId);
+        const linkResult = await createRecoveryPaymentLink(prisma, resolvedCaseId);
         if (linkResult.success) {
           linkUrl = linkResult.linkUrl || '';
           linkId = linkResult.linkId || '';
@@ -409,11 +419,11 @@ export async function processVoiceResponse(
       // Log payment link in audit trail with clickable URL
       await prisma.auditEvent.create({
         data: {
-          caseId,
+          caseId: resolvedCaseId,
           actor: 'voice-response',
           actorVersion: '1.0-demo',
           eventType: 'PAYMENT_LINK_CREATED',
-          inputRecordRefs: JSON.stringify([caseId, callId]),
+          inputRecordRefs: JSON.stringify([resolvedCaseId, callId]),
           ruleOrPromptVersion: 'voice-pay-now',
           decision: JSON.stringify({
             action: 'payment_link_created',
@@ -452,7 +462,7 @@ export async function processVoiceResponse(
 
       try {
         const ptpResult = await capturePTP(prisma, {
-          recoveryCaseId: caseId,
+          recoveryCaseId: resolvedCaseId,
           customerId: 'cust_demo',
           amountPaise: recoveryCase.outstandingAmountPaise,
           promisedDate: ptpDate,
@@ -494,11 +504,11 @@ export async function processVoiceResponse(
       // Record opt-out in audit trail
       await prisma.auditEvent.create({
         data: {
-          caseId,
+          caseId: resolvedCaseId,
           actor: 'voice-response',
           actorVersion: '1.0-demo',
           eventType: 'CUSTOMER_OPT_OUT',
-          inputRecordRefs: JSON.stringify([caseId, callId]),
+          inputRecordRefs: JSON.stringify([resolvedCaseId, callId]),
           ruleOrPromptVersion: 'voice-response-handler',
           decision: JSON.stringify({ response: 'opt_out', channel: 'voice' }),
           reasons: JSON.stringify(['Customer opted out of future calls during voice recovery']),

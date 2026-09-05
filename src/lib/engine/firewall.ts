@@ -506,7 +506,7 @@ export async function evaluateAllActions(
 }> {
   const activePolicy = policy || await loadPolicy(prisma);
 
-  const recoveryCase = await prisma.recoveryCase.findUnique({
+  let recoveryCase = await prisma.recoveryCase.findUnique({
     where: { id: caseId },
     include: {
       recoveryActions: true,
@@ -514,10 +514,22 @@ export async function evaluateAllActions(
       riskSignals: true,
     },
   });
+  if (!recoveryCase) {
+    recoveryCase = await prisma.recoveryCase.findFirst({
+      where: { caseNumber: caseId },
+      include: {
+        recoveryActions: true,
+        promiseToPays: { where: { state: 'active' } },
+        riskSignals: true,
+      },
+    });
+  }
 
   if (!recoveryCase) {
     return { allowed: [], blocked: [] };
   }
+
+  const resolvedCaseId = recoveryCase.id;
 
   // Get customer info
   const evidenceRefs = JSON.parse(recoveryCase.evidenceRefs) as string[];
@@ -555,7 +567,7 @@ export async function evaluateAllActions(
   retryStart.setDate(retryStart.getDate() - activePolicy.retries.windowDays);
   const retryCount = await prisma.recoveryAction.count({
     where: {
-      recoveryCaseId: caseId,
+      recoveryCaseId: resolvedCaseId,
       actionType: 'retry_payment',
       createdAt: { gte: retryStart },
     },
@@ -612,7 +624,7 @@ export async function evaluateAllActions(
 
   for (const action of allActions) {
     const ctx: GateContext = {
-      caseId,
+      caseId: resolvedCaseId,
       cashState: recoveryCase.cashState,
       diagnosisCode: recoveryCase.diagnosisCode,
       action,

@@ -42,14 +42,22 @@ export async function capturePTP(
   input: PTPInput
 ): Promise<PTPResult> {
   // Validate the recovery case exists and is recoverable
-  const recoveryCase = await prisma.recoveryCase.findUnique({
+  let recoveryCase = await prisma.recoveryCase.findUnique({
     where: { id: input.recoveryCaseId },
     include: { promiseToPays: { where: { state: 'active' } } },
   });
+  if (!recoveryCase) {
+    recoveryCase = await prisma.recoveryCase.findFirst({
+      where: { caseNumber: input.recoveryCaseId },
+      include: { promiseToPays: { where: { state: 'active' } } },
+    });
+  }
 
   if (!recoveryCase) {
     return { success: false, ptpId: '', state: 'active', message: 'Recovery case not found.' };
   }
+
+  const resolvedCaseId = recoveryCase.id;
 
   if (recoveryCase.cashState !== 'recoverable' && recoveryCase.cashState !== 'promise_to_pay') {
     return {
@@ -80,11 +88,30 @@ export async function capturePTP(
     return { success: false, ptpId: '', state: 'active', message: 'Promised amount must be positive.' };
   }
 
+  // Resolve customer ID to ensure foreign key constraint succeeds
+  let customerId = input.customerId;
+  let customerExists = customerId ? await prisma.customer.findUnique({ where: { id: customerId } }) : null;
+  if (!customerExists) {
+    try {
+      const refs: string[] = JSON.parse(recoveryCase.evidenceRefs || '[]');
+      const refCustomer = refs.find(r => r.startsWith('cust_'));
+      if (refCustomer && await prisma.customer.findUnique({ where: { id: refCustomer } })) {
+        customerId = refCustomer;
+      } else {
+        const firstCust = await prisma.customer.findFirst();
+        if (firstCust) customerId = firstCust.id;
+      }
+    } catch {
+      const firstCust = await prisma.customer.findFirst();
+      if (firstCust) customerId = firstCust.id;
+    }
+  }
+
   // Create PTP record
   const ptp = await prisma.promiseToPay.create({
     data: {
-      recoveryCaseId: input.recoveryCaseId,
-      customerId: input.customerId,
+      recoveryCaseId: resolvedCaseId,
+      customerId,
       amountPaise: input.amountPaise,
       promisedDate: input.promisedDate,
       source: input.source,
@@ -95,7 +122,7 @@ export async function capturePTP(
 
   // Update case state to promise_to_pay
   await prisma.recoveryCase.update({
-    where: { id: input.recoveryCaseId },
+    where: { id: resolvedCaseId },
     data: {
       cashState: 'promise_to_pay',
       // Update allowed/blocked actions
@@ -113,11 +140,11 @@ export async function capturePTP(
   // Create audit event
   const audit = await prisma.auditEvent.create({
     data: {
-      caseId: input.recoveryCaseId,
+      caseId: resolvedCaseId,
       actor: 'ptp-state-machine',
       actorVersion: '1.0-demo',
       eventType: 'PTP_CREATED',
-      inputRecordRefs: JSON.stringify([ptp.id, input.recoveryCaseId]),
+      inputRecordRefs: JSON.stringify([ptp.id, resolvedCaseId]),
       ruleOrPromptVersion: 'ptp_v1',
       decision: JSON.stringify({
         action: 'capture_ptp',

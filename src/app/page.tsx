@@ -104,11 +104,11 @@ export default function CommandCenter() {
   const stateMap: Record<string, { count: number; totalPaise: number }> = dashboard?.casesByState ?? {};
   const orderedStates = ['matched', 'matched_with_tds', 'waiting_for_settlement', 'recoverable', 'finance_review', 'risk_hold', 'promise_to_pay', 'closed'];
 
-  const integrationStatus = dashboard?.integrationStatus;
+
 
   return (
     <div className="app-shell">
-      <Sidebar integrationStatus={integrationStatus} />
+      <Sidebar />
       <div className="main-content">
         <div className="page-header">
           <h1 className="page-title">Batch Command Center</h1>

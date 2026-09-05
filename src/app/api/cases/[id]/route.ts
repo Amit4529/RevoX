@@ -12,7 +12,7 @@ export async function GET(
   try {
     const { id } = await params;
 
-    const recoveryCase = await prisma.recoveryCase.findUnique({
+    let recoveryCase = await prisma.recoveryCase.findUnique({
       where: { id },
       include: {
         reconciliationMatches: true,
@@ -27,6 +27,25 @@ export async function GET(
         experimentAssignment: true,
       },
     });
+
+    // Fallback: try finding by caseNumber if UUID lookup failed
+    if (!recoveryCase) {
+      recoveryCase = await prisma.recoveryCase.findFirst({
+        where: { caseNumber: id },
+        include: {
+          reconciliationMatches: true,
+          policyDecisions: {
+            include: { policy: true },
+          },
+          recoveryActions: { orderBy: { createdAt: 'desc' } },
+          promiseToPays: { orderBy: { createdAt: 'desc' } },
+          evidenceEdges: true,
+          auditEvents: { orderBy: { createdAt: 'desc' } },
+          riskSignals: true,
+          experimentAssignment: true,
+        },
+      });
+    }
 
     if (!recoveryCase) {
       return NextResponse.json({ error: 'Case not found' }, { status: 404 });

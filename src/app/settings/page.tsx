@@ -140,18 +140,6 @@ export default function SettingsPage() {
     setSaveStatus('idle');
   };
 
-  const envVars = [
-    { label: 'DATABASE_URL',              hint: 'SQLite file path',              configured: true },
-    { label: 'RAZORPAY_KEY_ID',           hint: 'rzp_test_xxx',                  configured: false },
-    { label: 'RAZORPAY_KEY_SECRET',       hint: 'Razorpay API secret key',       configured: false },
-    { label: 'ENABLE_RAZORPAY_TEST_MODE', hint: 'Set to "true" to enable',       configured: false },
-    { label: 'APP_BASE_URL',              hint: 'http://localhost:3000',          configured: true },
-    { label: 'OPENAI_API_KEY',            hint: 'Optional — enables LLM features', configured: false },
-    { label: 'ENABLE_OUTBOUND_CALLS',     hint: 'Set to "true" for Twilio calls', configured: false },
-    { label: 'TWILIO_ACCOUNT_SID',        hint: 'Twilio account identifier',     configured: false },
-    { label: 'TWILIO_AUTH_TOKEN',         hint: 'Twilio auth token',             configured: false },
-    { label: 'TWILIO_FROM_NUMBER',        hint: 'Phone number for Twilio calls', configured: false },
-  ];
 
   return (
     <div className="app-shell">
@@ -262,27 +250,6 @@ export default function SettingsPage() {
                       )}
                     </div>
                   </div>
-                </div>
-              </div>
-
-              {/* Environment Variables */}
-              <div className="card">
-                <div className="card-header"><h2 className="card-title">Environment Variables</h2></div>
-                <div className="card-body">
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
-                    Configure these in your <span className="mono">.env</span> file.
-                  </div>
-                  {envVars.map(v => (
-                    <div key={v.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid var(--border)', fontSize: 12 }}>
-                      <div>
-                        <div className="mono" style={{ fontWeight: 600, fontSize: 11.5 }}>{v.label}</div>
-                        <div style={{ color: 'var(--text-muted)', fontSize: 11 }}>{v.hint}</div>
-                      </div>
-                      <span className={`badge ${v.configured ? 'badge-green' : 'chip-inactive'}`} style={{ fontSize: 10, padding: '2px 6px' }}>
-                        {v.configured ? 'set' : 'not set'}
-                      </span>
-                    </div>
-                  ))}
                 </div>
               </div>
             </div>

@@ -55,7 +55,7 @@ export async function POST(request: Request) {
     // --- NEW: Extract case number from question (e.g. "CIC-RE-0066") ---
     let resolvedCase: any = null;
 
-    // Try caseId (UUID) first
+    // Try caseId (UUID or caseNumber)
     if (caseId) {
       resolvedCase = await prisma.recoveryCase.findUnique({
         where: { id: caseId },
@@ -66,13 +66,24 @@ export async function POST(request: Request) {
           recoveryActions: { take: 5, orderBy: { createdAt: 'desc' } },
         },
       });
+      if (!resolvedCase) {
+        resolvedCase = await prisma.recoveryCase.findFirst({
+          where: { caseNumber: caseId },
+          include: {
+            reconciliationMatches: true,
+            auditEvents: { take: 10, orderBy: { createdAt: 'desc' } },
+            evidenceEdges: true,
+            recoveryActions: { take: 5, orderBy: { createdAt: 'desc' } },
+          },
+        });
+      }
     }
 
-    // Try extracting case number from question (CIC-RE-XXXX)
+    // Try extracting case number from question (CIC-XX-XXXX)
     if (!resolvedCase) {
-      const caseMatch = question.match(/CIC[_-]RE[_-](\d+)/i);
+      const caseMatch = question.match(/CIC[_-]([A-Z]{2})[_-](\d+)/i);
       if (caseMatch) {
-        const caseNumber = `CIC-RE-${caseMatch[1].padStart(4, '0')}`;
+        const caseNumber = `CIC-${caseMatch[1].toUpperCase()}-${caseMatch[2].padStart(4, '0')}`;
         resolvedCase = await prisma.recoveryCase.findFirst({
           where: { caseNumber },
           include: {
