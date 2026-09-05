@@ -13,7 +13,6 @@
   <img src="https://img.shields.io/badge/TypeScript-5.0-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
   <img src="https://img.shields.io/badge/Prisma-5.22-2D3748?logo=prisma" alt="Prisma" />
   <img src="https://img.shields.io/badge/Razorpay-API-0C2451?logo=razorpay" alt="Razorpay" />
-  <img src="https://img.shields.io/badge/Gemini_AI-2.5_Flash-4285F4?logo=google&logoColor=white" alt="Gemini" />
   <img src="https://img.shields.io/badge/Twilio-Voice-F22F46?logo=twilio&logoColor=white" alt="Twilio" />
   <img src="https://img.shields.io/badge/Tests-39_Passing-2EA44F" alt="Tests" />
 </p>
@@ -34,16 +33,7 @@ Built over many sleepless nights — debugging voice webhooks at 3 AM, wiring re
 
 ---
 
-## 🎥 Demo
-
-<!-- ADD YOUR DEMO VIDEO LINK HERE -->
-<!-- [![Watch the Demo](link-to-thumbnail)](link-to-video) -->
-
----
-
-## 📸 Screenshots
-
-<!-- ADD YOUR SCREENSHOTS BELOW — replace the placeholder paths with your actual image paths -->
+## 📸 Prototype
 
 ### Batch Command Center — Cash Bridge & Forward Forecaster
 <img width="1897" height="907" alt="image" src="https://github.com/user-attachments/assets/1f2bd20f-7869-4c92-9545-f1f3ff4720e0" />
@@ -54,13 +44,13 @@ Built over many sleepless nights — debugging voice webhooks at 3 AM, wiring re
 <img width="1917" height="907" alt="image" src="https://github.com/user-attachments/assets/b379d37e-45a3-413e-a48b-ee2181cf099a" />
 <img width="1895" height="911" alt="image" src="https://github.com/user-attachments/assets/683bd877-e195-4c0f-b6e1-3ce9f3394d51" />
 
-### Evidence Case File — Full Audit Trail & Gemini AI Q&A
-<!-- ![Case File](screenshots/case-file.png) -->
-`📸 Add screenshot here`
+### Evidence Case File — Full Audit Trail
+<img width="1900" height="907" alt="image" src="https://github.com/user-attachments/assets/ce8bf2d4-5f95-499e-a067-e42fec391cf3" />
 
 ### Recovery Panel — Live Voice Call & Payment Link
 <img width="1900" height="906" alt="image" src="https://github.com/user-attachments/assets/7e10ff78-6c37-4130-bee2-72086944a61f" />
 <img width="1916" height="907" alt="image" src="https://github.com/user-attachments/assets/24ba940e-8d5a-4a08-8778-a52140258fbe" />
+<img width="1610" height="972" alt="Screenshot 2026-09-05 125626" src="https://github.com/user-attachments/assets/5fce8927-9ae6-4e09-957d-6bdd09f8c3ec" />
 
 ---
 
@@ -109,7 +99,7 @@ When a customer says *"I'll pay Friday"*, the agent:
 ### 💳 Live Razorpay Payment Links (Test Mode)
 Real `https://rzp.io/...` payment links generated via Razorpay API. When a customer completes payment, the webhook triggers instant re-reconciliation and case closure.
 
-### 🤖 Gemini AI Settlement Q&A
+### 🤖 AI Settlement Q&A
 Ask natural-language questions like *"Why did settlement set_883 differ by ₹340?"* and get **math-grounded explanations** with calculation chips. The LLM is strictly bounded — it cannot alter monetary figures or override policy decisions.
 
 ### 📊 Forward Cash Forecaster
@@ -194,7 +184,7 @@ npm run test
 | **Razorpay Test Mode** | Payment link creation, webhook verification (HMAC SHA-256) | ✅ Connected |
 | **Google Gemini 2.5 Flash** | Settlement Q&A with anti-hallucination guardrails | ✅ Connected |
 | **Twilio Voice** | Real outbound Hinglish calls with DTMF detection | ✅ Connected |
-| **Cloudflare Tunnel** | Public URL for webhook delivery to localhost | ✅ Connected |
+| **Cloudflare Tunnel** | Public URL for webhook delivery | ✅ Connected |
 
 ---
 
@@ -260,7 +250,7 @@ cic/
 - **Frontend**: Next.js 16.3, React 19, TypeScript, Tailwind CSS
 - **Backend**: Next.js API Routes, Prisma ORM
 - **Database**: SQLite (portable, zero-config)
-- **AI**: Google Gemini 2.5 Flash
+- **AI**: Google Gemini 2.5 Flash (For Settlement Q&A Only)
 - **Payments**: Razorpay Test Mode API
 - **Voice**: Twilio Programmable Voice
 - **Testing**: 39 custom test cases (tsx runner)
