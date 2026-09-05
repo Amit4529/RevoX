@@ -4,7 +4,7 @@
     <strong>An Autonomous, Policy-Bound AI Finance Agent for Razorpay Merchants</strong>
   </p>
   <p align="center">
-    Built for the <a href="https://razorpay.com/buildathon">Razorpay Buildathon 2026</a> · Track 3 (AI Revenue Recovery) + Track 4 (AI Finance Controller)
+    Built for the <a href="https://razorpay.com/buildathon">Razorpay Buildathon 2026</a>.
   </p>
 </p>
 
@@ -12,7 +12,7 @@
   <img src="https://img.shields.io/badge/Next.js-16.3-black?logo=next.js" alt="Next.js" />
   <img src="https://img.shields.io/badge/TypeScript-5.0-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
   <img src="https://img.shields.io/badge/Prisma-5.22-2D3748?logo=prisma" alt="Prisma" />
-  <img src="https://img.shields.io/badge/Razorpay-Test_Mode-0C2451?logo=razorpay" alt="Razorpay" />
+  <img src="https://img.shields.io/badge/Razorpay-API-0C2451?logo=razorpay" alt="Razorpay" />
   <img src="https://img.shields.io/badge/Gemini_AI-2.5_Flash-4285F4?logo=google&logoColor=white" alt="Gemini" />
   <img src="https://img.shields.io/badge/Twilio-Voice-F22F46?logo=twilio&logoColor=white" alt="Twilio" />
   <img src="https://img.shields.io/badge/Tests-39_Passing-2EA44F" alt="Tests" />
@@ -22,15 +22,15 @@
 
 ## 🧠 What is RevoX?
 
-Every time a customer pays online, the money doesn't just land in the merchant's bank — it flows through gateways, settlements, MDR deductions, GST, TDS, chargebacks, and adjustments. Merchants are left asking one painful question: **"Did every captured rupee actually reach my bank?"**
+Merchants lose revenue every single day — not because their product failed, but because **the money never made it through.** A customer adds items to cart and disappears mid-checkout. A recurring subscription silently fails because the card expired. A UPI mandate gets declined twice and nobody follows up. An invoice sits overdue for weeks with zero intervention.
 
-Today, **reconciliation** and **recovery** live in two disconnected worlds. Detection happens — but then what? Finance teams investigate manually, support teams blindly blast SMS reminders, and nobody checks if that customer already has a pending refund.
+The tools that exist today can sometimes *detect* these problems — but that's where they stop. What happens next is manual chaos: finance teams scrambling through spreadsheets, support teams blasting generic SMS reminders at 11 PM, and nobody checking whether that customer already disputed the charge or opted out of communication.
 
-**RevoX closes this entire loop.** It is an autonomous AI finance agent that goes from raw transaction data → discrepancy detection → diagnosis → policy evaluation → recovery execution — **without human handoff**.
+**RevoX is an autonomous AI agent that closes the gap between knowing revenue is at risk and actually recovering it.** It detects the problem, figures out the root cause, evaluates whether reaching out is even appropriate, picks the least-intrusive recovery action, and executes it — **all without human handoff.**
 
-> *One click. 120 records reconciled. Discrepancies diagnosed. Recovery actions scored, filtered through 8 policy gates, and executed — with a complete audit trail.*
+> *One click. 120 records ingested. At-risk revenue identified. Recovery actions scored, filtered through 8 policy gates, and executed — with a complete audit trail.*
 
-This project was built over many sleepless nights — debugging Twilio webhooks at 3 AM, hunting floating-point ghosts in settlement math, and wiring real-time DTMF detection to a React dashboard. Every feature works end-to-end, not just in theory.
+Built over many sleepless nights — debugging voice webhooks at 3 AM, wiring real-time call responses to a React dashboard, and making every integration work end-to-end. Every feature here is live, not a mockup.
 
 ---
 
@@ -70,7 +70,7 @@ This project was built over many sleepless nights — debugging Twilio webhooks 
 ## ✨ Key Features
 
 ### 🔁 Autonomous Closed-Loop Agent
-Unlike tools that stop at detection, RevoX autonomously **diagnoses** why a discrepancy exists, **decides** whether recovery is appropriate, **selects** the optimal action, and **executes** it — all in one pipeline.
+Unlike tools that stop at flagging a problem, RevoX autonomously **diagnoses** the root cause (abandoned checkout? expired card? failed mandate?), **decides** whether contacting the customer is even appropriate, **selects** the least-intrusive action, and **executes** it — all in one pipeline.
 
 ### 🔍 5-Tier Reconciliation Engine
 Deterministic matching across 5 tiers of increasing intelligence:
@@ -271,5 +271,5 @@ cic/
 ---
 
 <p align="center">
-  Built with ❤️ and many sleepless nights for the Razorpay Buildathon 2026
+  Built with ❤️ and many sleepless nights
 </p>
