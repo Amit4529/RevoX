@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "CIC — Cash Integrity Controller",
-  description: "Finance-ops dashboard for automated cash reconciliation, exception management, and recovery orchestration.",
+  title: "RevoX — Agentic Recovery Intelligence",
+  description: "AI-powered agentic platform for automated cash reconciliation, exception management, and intelligent recovery orchestration.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -18,7 +18,7 @@ interface SidebarProps {
 
 const NAV_ITEMS = [
   { href: '/',        icon: '⬡', label: 'Command Center' },
-  { href: '/queue',   icon: '≡', label: 'Integrity Queue' },
+  { href: '/queue',   icon: '≡', label: 'Recovery Queue' },
   { href: '/metrics', icon: '◈', label: 'Metrics' },
 ];
 
@@ -60,8 +60,11 @@ export default function Sidebar({ integrationStatus }: SidebarProps) {
     <aside className="sidebar">
       {/* Logo */}
       <div className="sidebar-logo">
-        <div className="sidebar-logo-title">CIC</div>
-        <div className="sidebar-logo-sub">Cash Integrity Controller</div>
+        <div className="sidebar-logo-title">
+          <span className="sidebar-logo-accent" />
+          RevoX
+        </div>
+        <div className="sidebar-logo-sub">Agentic Recovery Intelligence</div>
       </div>
 
       {/* Main nav */}
@@ -93,23 +96,23 @@ export default function Sidebar({ integrationStatus }: SidebarProps) {
 
       {/* Integration chips */}
       <div className="sidebar-chips">
-        <div style={{ fontSize: 10, fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
+        <div style={{ fontSize: 10, fontWeight: 700, color: '#4A6382', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>
           Integrations
         </div>
         <span className={`chip ${status.demoMode ? 'chip-demo' : 'chip-inactive'}`}>
-          <span className="chip-dot" style={{ background: status.demoMode ? '#4ade80' : '#374151' }} />
+          <span className="chip-dot" style={{ background: status.demoMode ? '#68D391' : '#374151' }} />
           DEMO MODE
         </span>
         <span className={`chip ${status.razorpayTestMode ? 'chip-rzp' : 'chip-inactive'}`}>
-          <span className="chip-dot" style={{ background: status.razorpayTestMode ? '#60a5fa' : '#374151' }} />
+          <span className="chip-dot" style={{ background: status.razorpayTestMode ? '#63B3ED' : '#374151' }} />
           RZP TEST
         </span>
         <span className={`chip ${status.voiceSimulator ? 'chip-voice' : 'chip-inactive'}`}>
-          <span className="chip-dot" style={{ background: status.voiceSimulator ? '#c084fc' : '#374151' }} />
+          <span className="chip-dot" style={{ background: status.voiceSimulator ? '#B794F4' : '#374151' }} />
           VOICE SIM
         </span>
         <span className={`chip ${status.twilioEnabled ? 'chip-twilio' : 'chip-inactive'}`}>
-          <span className="chip-dot" style={{ background: status.twilioEnabled ? '#f472b6' : '#374151' }} />
+          <span className="chip-dot" style={{ background: status.twilioEnabled ? '#F687B3' : '#374151' }} />
           TWILIO
         </span>
       </div>

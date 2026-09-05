@@ -124,8 +124,8 @@ export async function POST(request: Request) {
       }
 
       // Outstanding amount
-      if (rc.outstandingPaise != null) {
-        const amt = (rc.outstandingPaise / 100).toLocaleString('en-IN', { style: 'currency', currency: 'INR' });
+      if (rc.outstandingAmountPaise != null) {
+        const amt = (rc.outstandingAmountPaise / 100).toLocaleString('en-IN', { style: 'currency', currency: 'INR' });
         lines.push(`**Outstanding Amount:** ${amt}`);
       }
 
@@ -165,7 +165,7 @@ export async function POST(request: Request) {
       return NextResponse.json({
         answer: answerText,
         reconciliationStatus: rc.cashState ?? 'unknown',
-        grossPaise: rc.outstandingPaise ?? 0,
+        grossPaise: rc.outstandingAmountPaise ?? 0,
         deductionLines: [],
         netPaise: 0,
         bankCreditPaise: 0,

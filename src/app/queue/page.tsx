@@ -103,7 +103,7 @@ export default function QueuePage() {
       <Sidebar />
       <div className="main-content">
         <div className="page-header">
-          <h1 className="page-title">Cash Integrity Queue</h1>
+          <h1 className="page-title">Recovery Queue</h1>
           <p className="page-subtitle">Prioritized cases sorted by outstanding amount. Click any row to open the Evidence Case File.</p>
         </div>
 

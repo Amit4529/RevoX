@@ -56,7 +56,7 @@ async function handleTwilioRequest(request: Request) {
 
     if (!digits) {
       // Initial Call Script
-      const script = `Namaste, main CIC Demo Merchant ki payment assistance team se bol raha hoon. Aapke case ${caseNumber} ke liye ${amount} ka payment abhi pending dikh raha hai. Hum kabhi OTP, UPI PIN, card number ya bank details nahi maangenge. Payment link paane ke liye 1 dabaiye. Friday tak payment promise ke liye 2 dabaiye. Support ke liye 3 dabaiye. Aur future calls band karne ke liye 9 dabaiye.`;
+      const script = `Namaste, main RevoX Demo Merchant ki payment assistance team se bol raha hoon. Aapke case ${caseNumber} ke liye ${amount} ka payment abhi pending dikh raha hai. Hum kabhi OTP, UPI PIN, card number ya bank details nahi maangenge. Payment link paane ke liye 1 dabaiye. Friday tak payment promise ke liye 2 dabaiye. Support ke liye 3 dabaiye. Aur future calls band karne ke liye 9 dabaiye.`;
 
       twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
@@ -97,7 +97,7 @@ async function handleTwilioRequest(request: Request) {
 
           if (accountSid && authToken && fromNumber && toNumber && linkUrl) {
             try {
-              const smsBody = `[CIC Recovery] Payment link for case ${caseNumber} (${amount}): ${linkUrl}. Click to complete your payment securely.`;
+              const smsBody = `[RevoX Recovery] Payment link for case ${caseNumber} (${amount}): ${linkUrl}. Click to complete your payment securely.`;
               const smsParams = new URLSearchParams();
               smsParams.append('To', toNumber);
               smsParams.append('From', fromNumber);
@@ -250,7 +250,7 @@ async function handleTwilioRequest(request: Request) {
     console.error('Twilio webhook error:', error);
     const errorTwiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Say>Namaste, CIC payment assistance call complete. Thank you.</Say>
+  <Say>Namaste, RevoX payment assistance call complete. Thank you.</Say>
 </Response>`;
     return new Response(errorTwiml, {
       headers: { 'Content-Type': 'text/xml' },

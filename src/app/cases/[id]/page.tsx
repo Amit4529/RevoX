@@ -347,22 +347,54 @@ export default function CaseFilePage() {
               {(!data.auditEvents || data.auditEvents.length === 0) ? (
                 <div style={{ fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic' }}>No audit events yet.</div>
               ) : (
-                data.auditEvents.map((e: any) => (
-                  <div key={e.id} className="audit-entry">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <span className={`audit-event-type ${e.eventType?.includes('BLOCKED') ? 'badge badge-blocked' : e.eventType?.includes('HUMAN') ? 'badge badge-amber' : 'badge badge-blue'}`} style={{ fontSize: 11 }}>
-                        {e.eventType}
-                      </span>
-                      <span className="audit-meta">{new Date(e.createdAt).toLocaleString('en-IN')}</span>
+                data.auditEvents.map((e: any) => {
+                  // Extract payment link from decision JSON
+                  let paymentLinkUrl = '';
+                  try {
+                    const decision = typeof e.decision === 'string' ? JSON.parse(e.decision) : e.decision;
+                    if (decision?.linkUrl) paymentLinkUrl = decision.linkUrl;
+                  } catch { /* ignore */ }
+
+                  // Determine badge color based on event type
+                  const badgeClass = e.eventType?.includes('BLOCKED') ? 'badge badge-blocked'
+                    : e.eventType?.includes('RECOVERY_COMPLETED') ? 'badge badge-green'
+                    : e.eventType?.includes('PTP_CREATED') ? 'badge badge-blue'
+                    : e.eventType?.includes('PAYMENT_LINK') ? 'badge badge-amber'
+                    : e.eventType?.includes('HUMAN') ? 'badge badge-amber'
+                    : 'badge badge-blue';
+
+                  return (
+                    <div key={e.id} className="audit-entry">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <span className={badgeClass} style={{ fontSize: 11 }}>
+                          {e.eventType}
+                        </span>
+                        <span className="audit-meta">{new Date(e.createdAt).toLocaleString('en-IN')}</span>
+                      </div>
+                      <div className="audit-meta" style={{ marginTop: 4 }}>
+                        Actor: <strong>{e.actor}</strong> &nbsp;·&nbsp; Policy: {e.policySnapshot}
+                      </div>
+                      {e.reasons?.map((r: string, i: number) => (
+                        <div key={i} className="audit-reason">{r}</div>
+                      ))}
+                      {/* Show clickable payment link if present */}
+                      {paymentLinkUrl && (
+                        <div style={{ marginTop: 6 }}>
+                          <a
+                            href={paymentLinkUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn btn-primary btn-sm"
+                            style={{ fontSize: 10.5, padding: '4px 12px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                          >
+                            🔗 Open Payment Link
+                          </a>
+                          <span style={{ fontSize: 10, color: 'var(--text-muted)', marginLeft: 8 }}>{paymentLinkUrl}</span>
+                        </div>
+                      )}
                     </div>
-                    <div className="audit-meta" style={{ marginTop: 4 }}>
-                      Actor: <strong>{e.actor}</strong> &nbsp;·&nbsp; Policy: {e.policySnapshot}
-                    </div>
-                    {e.reasons?.map((r: string, i: number) => (
-                      <div key={i} className="audit-reason">{r}</div>
-                    ))}
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>

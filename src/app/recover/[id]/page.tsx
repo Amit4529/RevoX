@@ -162,7 +162,7 @@ export default function RecoveryPanel() {
     setVoiceRunning(true);
     const amount = formatPaise(caseData.outstandingAmountPaise);
     const script = voiceCallData?.script ||
-      `Namaste, main CIC Demo Merchant ki payment assistance team se bol raha hoon. Aapke ${caseData.caseNumber} ke liye ${amount} ka payment abhi pending dikh raha hai. Payment link ke liye 1 dabaiye, Friday tak payment ka promise dene ke liye 2, support ke liye 3, aur future calls band karne ke liye 9.`;
+      `Namaste, main RevoX Demo Merchant ki payment assistance team se bol raha hoon. Aapke ${caseData.caseNumber} ke liye ${amount} ka payment abhi pending dikh raha hai. Payment link ke liye 1 dabaiye, Friday tak payment ka promise dene ke liye 2, support ke liye 3, aur future calls band karne ke liye 9.`;
     const utt = new SpeechSynthesisUtterance(script);
     utt.lang = 'hi-IN';
     utt.rate = 0.9;
@@ -555,14 +555,19 @@ export default function RecoveryPanel() {
                     <div key={ptp.id} style={{ display: 'flex', gap: 12, padding: '8px 0', borderBottom: '1px solid var(--border)', alignItems: 'center' }}>
                       <span className={`badge ${ptp.state === 'active' ? 'badge-blue' : ptp.state === 'kept' ? 'badge-green' : 'badge-red'}`}>{ptp.state}</span>
                       <span className="amount">{formatPaise(ptp.amountPaise)}</span>
-                      <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>by {new Date(ptp.promisedDate).toLocaleDateString('en-IN')}</span>
+                      <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>by {new Date(ptp.promisedDate).toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' })}</span>
                       <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 'auto' }}>via {ptp.source}</span>
                     </div>
                   ))}
                 </div>
               )}
 
-              {ptpStatus === 'done' ? (
+              {/* Show form only if NO active PTP exists */}
+              {caseData?.promiseToPays?.some((p: any) => p.state === 'active') ? (
+                <div style={{ padding: 12, background: 'rgba(8, 145, 178, 0.06)', borderRadius: 8, fontSize: 12.5, color: 'var(--text-secondary)' }}>
+                  ⏱ An active Promise-to-Pay is on file. All automated dunning is paused until the promised date. No manual entry needed — this was auto-captured from the customer's voice response.
+                </div>
+              ) : ptpStatus === 'done' ? (
                 <div className="alert alert-success">{ptpMsg}</div>
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -629,7 +634,7 @@ export default function RecoveryPanel() {
 
               {/* Script preview */}
               <div className="receipt-block" style={{ marginBottom: 14, fontSize: 12, whiteSpace: 'pre-wrap' }}>
-                {voiceCallData?.script || `"Namaste, main CIC Demo Merchant ki payment assistance team se bol raha hoon. Aapke ${caseData?.caseNumber} ke liye ${formatPaise(caseData?.outstandingAmountPaise ?? 0)} ka payment abhi pending dikh raha hai. Payment link ke liye 1, Friday tak promise ke liye 2, support ke liye 3, aur calls band karne ke liye 9."`}
+                {voiceCallData?.script || `"Namaste, main RevoX Demo Merchant ki payment assistance team se bol raha hoon. Aapke ${caseData?.caseNumber} ke liye ${formatPaise(caseData?.outstandingAmountPaise ?? 0)} ka payment abhi pending dikh raha hai. Payment link ke liye 1, Friday tak promise ke liye 2, support ke liye 3, aur calls band karne ke liye 9."`}
               </div>
 
               {/* Start / Play controls */}
@@ -695,12 +700,19 @@ export default function RecoveryPanel() {
 
               {/* Response result */}
               {voiceResponseResult && (
-                <div className="alert alert-success" style={{ marginTop: 12 }}>
+                <div className={`alert ${voiceResponseResult.success ? 'alert-success' : 'alert-danger'}`} style={{ marginTop: 12 }}>
                   <strong>✓ Response processed:</strong> {voiceResponseResult.message}
-                  {voiceResponseResult.ptpProposed && (
+                  {voiceResponseResult.paymentLinkUrl && (
                     <div style={{ marginTop: 6 }}>
-                      <strong>PTP proposed for: {voiceResponseResult.ptpDate}</strong>
-                      <br />Confirm in the Promise-to-Pay section above to persist.
+                      <a
+                        href={voiceResponseResult.paymentLinkUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn btn-sm"
+                        style={{ background: '#1D4ED8', color: 'white', border: 'none', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 12px', fontSize: 11 }}
+                      >
+                        🔗 Open Payment Link
+                      </a>
                     </div>
                   )}
                 </div>
