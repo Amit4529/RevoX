@@ -36,6 +36,7 @@ export interface VoiceCallReceipt {
   status: string;
   receipt: string;
   error?: string;
+  paymentLinkUrl?: string;
 }
 
 export interface VoiceCallStatus {
@@ -178,15 +179,23 @@ export class TwilioVoiceAdapter implements VoiceProvider {
       const authToken = process.env.TWILIO_AUTH_TOKEN!;
       const fromNumber = process.env.TWILIO_FROM_NUMBER!;
       const amountStr = `₹${(input.amountPaise / 100).toFixed(2)}`;
+      
+      let baseUrl = process.env.APP_BASE_URL || 'http://localhost:3000';
+      try {
+        const fs = require('fs');
+        if (fs.existsSync('tunnel_url.txt')) {
+          const t = fs.readFileSync('tunnel_url.txt', 'utf8').trim();
+          if (t.startsWith('https://')) baseUrl = t;
+        }
+      } catch {}
 
-      // Build TwiML served via twimlets.com/echo so Twilio accepts it as a public Url parameter (trial-account compatible)
-      const twiml = `<Response><Say language="hi-IN">${escapeXml(script)}</Say><Pause length="1"/><Say language="hi-IN">Payment link ke liye 1, promise ke liye 2, support ke liye 3, opt out ke liye 9 dabaiye.</Say><Pause length="8"/><Say language="hi-IN">Dhanyavaad. Aapka response record ho gaya hai. Hum aapko jaldi update denge.</Say></Response>`;
-      const twimletUrl = `https://twimlets.com/echo?Twiml=${encodeURIComponent(twiml)}`;
+      // Twilio fetches TwiML directly from our public webhook endpoint
+      const callUrl = `${baseUrl}/api/webhook/twilio?caseId=${encodeURIComponent(input.caseId)}&caseNumber=${encodeURIComponent(input.caseNumber)}&amount=${encodeURIComponent(amountStr)}`;
 
       const params = new URLSearchParams();
       params.append('To', toNumber);
       params.append('From', fromNumber);
-      params.append('Url', twimletUrl);
+      params.append('Url', callUrl);
 
       const response = await fetch(
         `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Calls.json`,
@@ -311,6 +320,7 @@ export async function startVoiceCall(
   }
 
   const resolvedId = recoveryCase.id;
+
   const provider = getVoiceProvider();
   const input: VoiceCallInput = {
     caseId: resolvedId,
@@ -352,7 +362,9 @@ export async function startVoiceCall(
     },
   });
 
-  return result;
+  return {
+    ...result,
+  };
 }
 
 /**

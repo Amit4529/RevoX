@@ -39,3 +39,17 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# binary tools & tunnels
+cloudflared.exe
+tunnel_url.txt
+
+# scratch / debug
+scratch/
+
+# database file
+prisma/dev.db
+
+# AI agent config (auto-generated)
+CLAUDE.md
+AGENTS.md

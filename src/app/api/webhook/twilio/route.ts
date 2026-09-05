@@ -38,19 +38,28 @@ async function handleTwilioRequest(request: Request) {
       } catch { /* ignore */ }
     }
 
-    // --- FIX: Resolve caseId from caseNumber if caseId is missing ---
-    if (!caseId && caseNumber) {
-      const rc = await prisma.recoveryCase.findFirst({
-        where: { caseNumber },
-        select: { id: true },
-      });
-      if (rc) {
-        caseId = rc.id;
-        console.log(`[Twilio Webhook] Resolved caseId ${caseId} from caseNumber ${caseNumber}`);
-      }
+    // Resolve caseId to the actual UUID
+    let rc = await prisma.recoveryCase.findUnique({ where: { id: caseId } });
+    if (!rc && caseNumber) {
+      rc = await prisma.recoveryCase.findFirst({ where: { caseNumber } });
+    }
+    if (!rc && caseId) {
+      rc = await prisma.recoveryCase.findFirst({ where: { caseNumber: caseId } });
+    }
+    if (rc) {
+      caseId = rc.id;
     }
 
-    const callbackUrl = `${process.env.APP_BASE_URL || 'http://localhost:3000'}/api/webhook/twilio?caseId=${encodeURIComponent(caseId)}&caseNumber=${encodeURIComponent(caseNumber)}&amount=${encodeURIComponent(amount)}`;
+    let baseUrl = process.env.APP_BASE_URL || 'http://localhost:3000';
+    try {
+      const fs = require('fs');
+      if (fs.existsSync('tunnel_url.txt')) {
+        const t = fs.readFileSync('tunnel_url.txt', 'utf8').trim();
+        if (t.startsWith('https://')) baseUrl = t;
+      }
+    } catch {}
+
+    const callbackUrl = `${baseUrl}/api/webhook/twilio?caseId=${encodeURIComponent(caseId)}&caseNumber=${encodeURIComponent(caseNumber)}&amount=${encodeURIComponent(amount)}`;
 
     let twiml = '';
 
@@ -64,6 +73,7 @@ async function handleTwilioRequest(request: Request) {
     <Say language="hi-IN" voice="Polly.Aditi">${escapeXml(script)}</Say>
   </Gather>
   <Say language="hi-IN" voice="Polly.Aditi">Koi response nahi mila. Hum baad mein try karenge. Dhanyavaad.</Say>
+  <Hangup/>
 </Response>`;
     } else {
       // Customer Response Handling
@@ -240,6 +250,7 @@ async function handleTwilioRequest(request: Request) {
       twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Say language="hi-IN" voice="Polly.Aditi">${escapeXml(responseMessage)}</Say>
+  <Hangup/>
 </Response>`;
     }
 

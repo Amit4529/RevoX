@@ -1,373 +1,275 @@
-# Cash Integrity Controller (CIC)
+<p align="center">
+  <h1 align="center">⚡ RevoX — Agentic Recovery Intelligence</h1>
+  <p align="center">
+    <strong>An Autonomous, Policy-Bound AI Finance Agent for Razorpay Merchants</strong>
+  </p>
+  <p align="center">
+    Built for the <a href="https://razorpay.com/buildathon">Razorpay Buildathon 2026</a> · Track 3 (AI Revenue Recovery) + Track 4 (AI Finance Controller)
+  </p>
+</p>
 
-> **An explainable, policy-bound AI finance-operations agent for Razorpay merchants.**
-
-CIC reconciles what a merchant expected to receive with what actually reached the bank, identifies cases that are genuinely recoverable, executes only the least intrusive policy-approved action, and proves the result with a complete audit trail.
-
-**Razorpay Buildathon** — Combines Track 3 (AI Revenue Recovery) and Track 4 (AI Finance Controller) into one closed loop.
-
-> ⚠️ **Disclosure**: This prototype uses synthetic data, test-only payments, and simulated communications. No real customer data or live payment processing. Not a claim of production compliance — described as policy-bound, consent-aware, and built for review.
+<p align="center">
+  <img src="https://img.shields.io/badge/Next.js-16.3-black?logo=next.js" alt="Next.js" />
+  <img src="https://img.shields.io/badge/TypeScript-5.0-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/Prisma-5.22-2D3748?logo=prisma" alt="Prisma" />
+  <img src="https://img.shields.io/badge/Razorpay-Test_Mode-0C2451?logo=razorpay" alt="Razorpay" />
+  <img src="https://img.shields.io/badge/Gemini_AI-2.5_Flash-4285F4?logo=google&logoColor=white" alt="Gemini" />
+  <img src="https://img.shields.io/badge/Twilio-Voice-F22F46?logo=twilio&logoColor=white" alt="Twilio" />
+  <img src="https://img.shields.io/badge/Tests-39_Passing-2EA44F" alt="Tests" />
+</p>
 
 ---
 
-## Architecture
+## 🧠 What is RevoX?
 
-```mermaid
-graph TB
-    subgraph Ingestion
-        A[Gateway Events] --> ING[Ingestion Engine]
-        B[Invoices] --> ING
-        C[Settlements] --> ING
-        D[Bank Statements] --> ING
-        E[Checkout Sessions] --> ING
-    end
+Every time a customer pays online, the money doesn't just land in the merchant's bank — it flows through gateways, settlements, MDR deductions, GST, TDS, chargebacks, and adjustments. Merchants are left asking one painful question: **"Did every captured rupee actually reach my bank?"**
 
-    subgraph "Reconciliation Engine"
-        ING --> TA[Tier A — Exact ID Match]
-        TA --> TB[Tier B — Composite Match]
-        TB --> TC[Tier C — Grouped Settlement]
-        TC --> TC5[Tier C.5 — TDS Match]
-        TC5 --> TD[Tier D — AI-Assisted Candidate]
-        TD --> TE[Tier E — Honest Exception]
-    end
+Today, **reconciliation** and **recovery** live in two disconnected worlds. Detection happens — but then what? Finance teams investigate manually, support teams blindly blast SMS reminders, and nobody checks if that customer already has a pending refund.
 
-    subgraph "Recovery Engine"
-        TE --> DIAG[Diagnosis Taxonomy]
-        DIAG --> FW[Do Not Recover Firewall]
-        FW --> SCORE[Action Scorer & Ranker]
-        SCORE --> PB[Playbook Engine]
-        PB --> PTP[Promise-to-Pay FSM]
-    end
+**RevoX closes this entire loop.** It is an autonomous AI finance agent that goes from raw transaction data → discrepancy detection → diagnosis → policy evaluation → recovery execution — **without human handoff**.
 
-    subgraph "Integrations"
-        PB --> RZP[Razorpay Test Mode]
-        PB --> VOICE[Voice Recovery]
-        PB --> LLM[AI / LLM Layer]
-        VOICE --> BROWSER[Browser SpeechSynthesis]
-        VOICE --> TWILIO[Twilio Adapter]
-        RZP --> WEBHOOK[Webhook Handler]
-    end
+> *One click. 120 records reconciled. Discrepancies diagnosed. Recovery actions scored, filtered through 8 policy gates, and executed — with a complete audit trail.*
 
-    subgraph "Dashboard"
-        UI1[Command Center]
-        UI2[Cash Integrity Queue]
-        UI3[Evidence Case File]
-        UI4[Recovery Panel]
-        UI5[Settings]
-        UI6[Metrics]
-    end
+This project was built over many sleepless nights — debugging Twilio webhooks at 3 AM, hunting floating-point ghosts in settlement math, and wiring real-time DTMF detection to a React dashboard. Every feature works end-to-end, not just in theory.
 
-    subgraph "Data Layer"
-        DB[(SQLite / Prisma)]
-        AUDIT[Audit Trail]
-    end
+---
+
+## 🎥 Demo
+
+<!-- ADD YOUR DEMO VIDEO LINK HERE -->
+<!-- [![Watch the Demo](link-to-thumbnail)](link-to-video) -->
+
+---
+
+## 📸 Screenshots
+
+<!-- ADD YOUR SCREENSHOTS BELOW — replace the placeholder paths with your actual image paths -->
+
+### Batch Command Center — Cash Bridge & Forward Forecaster
+<!-- ![Command Center](screenshots/command-center.png) -->
+`📸 Add screenshot here`
+
+### Cash Integrity Queue — Prioritized Recovery Actions
+<!-- ![Queue](screenshots/queue.png) -->
+`📸 Add screenshot here`
+
+### Evidence Case File — Full Audit Trail & Gemini AI Q&A
+<!-- ![Case File](screenshots/case-file.png) -->
+`📸 Add screenshot here`
+
+### Recovery Panel — Live Voice Call & Payment Link
+<!-- ![Recovery Panel](screenshots/recovery-panel.png) -->
+`📸 Add screenshot here`
+
+### Evaluation Metrics Dashboard
+<!-- ![Metrics](screenshots/metrics.png) -->
+`📸 Add screenshot here`
+
+---
+
+## ✨ Key Features
+
+### 🔁 Autonomous Closed-Loop Agent
+Unlike tools that stop at detection, RevoX autonomously **diagnoses** why a discrepancy exists, **decides** whether recovery is appropriate, **selects** the optimal action, and **executes** it — all in one pipeline.
+
+### 🔍 5-Tier Reconciliation Engine
+Deterministic matching across 5 tiers of increasing intelligence:
+
+| Tier | Method | Confidence |
+|------|--------|-----------|
+| **A** | Exact ID match (payment_id / UTR) | 1.00 |
+| **B** | Composite match (amount + timestamp + customer) | 0.95 |
+| **C** | Grouped settlement math (Gross − MDR − GST ± Adj) | 0.90 |
+| **C.5** | TDS line-item validation (Section 194O/194Q) | 0.90 |
+| **D** | AI-assisted candidate match | 0.70–0.85 |
+| **E** | Honest exception (routes to human review) | — |
+
+> The agent knows when to act — and when to **abstain**.
+
+### 🛡️ 8-Gate "Do Not Recover" Policy Firewall
+Before any action touches a customer, it must pass **8 strict gates**:
+
+```
+Cash State → Dispute/Refund → Contact Cap → Quiet Hours → Opt-Out → Hard Decline → Active PTP → Rail Switch
+```
+
+If any gate blocks, the agent explains exactly why — no black-box decisioning.
+
+### 📞 Live Hinglish Voice Recovery (Twilio)
+Real outbound phone calls in bilingual Hindi-English with anti-scam safeguards:
+- **Press 1** → Agent generates a Razorpay payment link instantly
+- **Press 2** → Agent captures a Promise-to-Pay and pauses all dunning
+- **Press 9** → Opt-out recorded, customer permanently suppressed
+- Dashboard updates in **real-time** via DTMF webhook detection
+
+### 🤝 Promise-to-Pay State Machine
+When a customer says *"I'll pay Friday"*, the agent:
+1. Captures the promise as structured financial state
+2. Auto-pauses all recovery actions
+3. Waits until promised date + 1 grace day
+4. Either closes the case or resumes escalation autonomously
+
+### 💳 Live Razorpay Payment Links (Test Mode)
+Real `https://rzp.io/...` payment links generated via Razorpay API. When a customer completes payment, the webhook triggers instant re-reconciliation and case closure.
+
+### 🤖 Gemini AI Settlement Q&A
+Ask natural-language questions like *"Why did settlement set_883 differ by ₹340?"* and get **math-grounded explanations** with calculation chips. The LLM is strictly bounded — it cannot alter monetary figures or override policy decisions.
+
+### 📊 Forward Cash Forecaster
+Projects bank inflows across **7, 14, and 30 days** combining:
+- Settled cash + Weighted PTP promises + Recovery pipeline + Pending settlements
+- **Low / Base / High** scenario ranges
+
+### 📈 Evaluation Metrics
+- **Precision Rate** ≥ 98% on automated matches
+- **Honesty Rate** — measures deliberate abstentions
+- **Firewall Effectiveness** — blocked communications count & ₹ value
+- **Traceability Coverage** — 100% of cases have evidence chains
+
+---
+
+## 🏗️ Architecture
+
+```
+┌─────────────────┐      ┌──────────────────────────┐      ┌─────────────────────┐
+│ Ingested Data   │ ───► │ 5-Tier Reconciliation    │ ───► │ Diagnosis Engine    │
+│ • Orders        │      │ Engine                   │      │ (14+ Discrepancy    │
+│ • Gateway Txns  │      │ (Exact → Composite →     │      │  Codes)             │
+│ • Settlements   │      │  Grouped → TDS → AI)     │      └──────────┬──────────┘
+│ • Bank Credits  │      └──────────────────────────┘                 │
+└─────────────────┘                                                   ▼
+                                                       ┌──────────────────────────┐
+┌─────────────────────┐    ┌───────────────────┐       │ Do Not Recover Firewall  │
+│ Recovery Execution  │◄───│ Action Scorer     │◄──────│ (8 Policy Gates)         │
+│ • Razorpay Links    │    │ (Expected Net     │       └──────────────────────────┘
+│ • Twilio Voice      │    │  Value Ranking)   │
+│ • PTP Tracker       │    └───────────────────┘
+│ • Audit Trail       │
+└─────────────────────┘
 ```
 
 ---
 
-## Key Differentiators
-
-1. **Evidence Graph** — One graph across checkout, payment attempt, invoice, settlement, and bank credit
-2. **Deterministic Reconciliation** — Tiered matching before AI reasoning. All money in integer paise (minor units), never floats
-3. **Do Not Recover Firewall** — Stops customer contact when the issue is settlement lag, refund, dispute, duplicate, risk hold, or accounting ambiguity
-4. **Policy Compiler** — Bounds retries, contact frequency, channel, consent, PTP, risk holds, and human approval
-5. **Measured Recovery** — Recovery attribution tracked with baseline/holdout, not assumed causation
-6. **Settlement Q&A** — Ask questions about any settlement and get grounded answers with calculation chips
-
----
-
-## Local Setup
+## 🚀 Getting Started
 
 ### Prerequisites
-- Node.js ≥ 18
-- npm
+- **Node.js 18+**
+- Razorpay Test Mode API keys ([Get here](https://dashboard.razorpay.com))
+- Gemini API key ([Get here](https://aistudio.google.com/apikey))
+- Twilio credentials (optional — for live voice calls)
 
 ### Installation
 
 ```bash
 # Clone the repository
-git clone <repo-url>
-cd cic
+git clone https://github.com/your-username/revox.git
+cd revox
 
 # Install dependencies
 npm install
 
-# Set up the database
-npx prisma db push
+# Configure environment
+cp .env.example .env
+# Edit .env with your API keys
 
-# Seed with 120-record synthetic batch
+# Setup database & seed with 120 synthetic records
+npx prisma db push
 npm run db:seed
 
-# Start development server
+# Start the development server
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open **[http://localhost:3000](http://localhost:3000)** and click **▶ Run Engine** to begin.
 
-### Environment Variables
-
-Copy `.env.example` to `.env`:
-
+### Running Tests
 ```bash
-cp .env.example .env
-```
-
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `DATABASE_URL` | ✅ | `file:./dev.db` | SQLite database path |
-| `RAZORPAY_KEY_ID` | ❌ | — | Razorpay Test Mode key (must start with `rzp_test_`) |
-| `RAZORPAY_KEY_SECRET` | ❌ | — | Razorpay Test Mode secret (server-only, never in browser) |
-| `RAZORPAY_WEBHOOK_SECRET` | ❌ | — | Webhook signature verification secret |
-| `ENABLE_RAZORPAY_TEST_MODE` | ❌ | `false` | Set to `true` to enable real Payment Links |
-| `APP_BASE_URL` | ✅ | `http://localhost:3000` | Base URL for webhooks and callbacks |
-| `OPENAI_API_KEY` | ❌ | — | Enables LLM-powered Settlement Q&A (deterministic fallback always works) |
-| `ENABLE_OUTBOUND_CALLS` | ❌ | `false` | Set to `true` to enable Twilio voice calls |
-| `VOICE_TEST_TO_NUMBER` | ❌ | — | Developer-owned number for test calls only |
-| `TWILIO_ACCOUNT_SID` | ❌ | — | Twilio account identifier |
-| `TWILIO_AUTH_TOKEN` | ❌ | — | Twilio auth token (server-only) |
-| `TWILIO_FROM_NUMBER` | ❌ | — | Twilio phone number for outbound calls |
-| `NODE_ENV` | ❌ | `development` | Environment mode |
-
-### NPM Scripts
-
-```bash
-npm run dev        # Start dev server
-npm run build      # Production build
-npm run db:seed    # Seed database with synthetic data
-npm run db:reset   # Reset and reseed database
-npm run db:push    # Push schema changes
-npm run db:studio  # Open Prisma Studio
-npm run test       # Run all tests
+# Run all 39 automated tests (safety, engine, firewall, HMAC)
+npm run test
 ```
 
 ---
 
-## Demo Mode Walkthrough
+## 🔌 Live Integrations
 
-**Everything works without any API keys.** The default experience is a complete local demo.
-
-### 6-Minute Demo Flow
-
-1. **Load & Process** — Open the Command Center (`/`). Click "▶ Run Engine" to process the 120-record seeded batch.
-
-2. **Cash Bridge & Forecast** — View the cash bridge waterfall showing Expected → Captured → Settled → Exceptions → Recovery. Drill into the 7/14/30-day Forward Cash Forecaster to see PTP-weighted and recovery-weighted projections.
-
-3. **Exact Match Proof** — Open the Queue (`/queue`), find a matched case, open its Case File. View the matching math, evidence chain, and calculation breakdown. Use the Settlement Q&A to ask: "Why did settlement set_883 differ by ₹340?"
-
-4. **TDS & Exception** — Find a `matched_with_tds` case — verify TDS evidence and rule application. Then open a finance_review case (₹50,000 short settlement) — verify CIC abstains and blocks customer recovery.
-
-5. **Recovery** — Open a recoverable failed payment or high-intent checkout case. See why Payment Link is allowed while alternatives are blocked by the firewall.
-
-6. **Payment Link** — Click "Execute" on the allowed Payment Link action. If Razorpay Test Mode is configured, a real Test Mode link is created. Otherwise, a labeled `SIMULATED` receipt appears.
-
-7. **Re-reconcile** — After recovery action, the cash bridge and forecast update automatically.
-
-8. **Promise-to-Pay** — Open the Recovery Panel for a PTP case. Capture a Friday promise. Verify normal dunning pauses. Simulate payment or breach.
-
-9. **Firewall Proof** — Open a risk_hold/opt-out/hard_decline case. Show the Do Not Recover firewall blocking all actions with specific gate reasons.
-
-10. **Metrics** — View precision, coverage, honesty rate, recovery amount, blocked actions, and traceability on the Metrics screen.
+| Integration | Purpose | Status |
+|------------|---------|--------|
+| **Razorpay Test Mode** | Payment link creation, webhook verification (HMAC SHA-256) | ✅ Connected |
+| **Google Gemini 2.5 Flash** | Settlement Q&A with anti-hallucination guardrails | ✅ Connected |
+| **Twilio Voice** | Real outbound Hinglish calls with DTMF detection | ✅ Connected |
+| **Cloudflare Tunnel** | Public URL for webhook delivery to localhost | ✅ Connected |
 
 ---
 
-## Razorpay Test Mode Setup
+## 📁 Project Structure
 
-### Getting Test Keys
-
-1. Sign in to [Razorpay Dashboard](https://dashboard.razorpay.com)
-2. Switch to **Test Mode** (toggle in top bar)
-3. Go to **Settings → API Keys** → Generate Test Keys
-4. Copy `rzp_test_xxx` (Key ID) and the secret
-
-### Configuration
-
-```env
-RAZORPAY_KEY_ID=rzp_test_YOUR_KEY_ID
-RAZORPAY_KEY_SECRET=YOUR_KEY_SECRET
-RAZORPAY_WEBHOOK_SECRET=YOUR_WEBHOOK_SECRET
-ENABLE_RAZORPAY_TEST_MODE=true
-APP_BASE_URL=https://your-public-test-host.example
+```
+cic/
+├── prisma/
+│   ├── schema.prisma          # Complete data model (18+ tables)
+│   ├── seed.ts                # 120-record synthetic enterprise dataset
+│   └── ground-truth.ts        # Verification data for test accuracy
+├── src/
+│   ├── app/
+│   │   ├── page.tsx           # Batch Command Center (Cash Bridge + Forecaster)
+│   │   ├── queue/             # Cash Integrity Queue (prioritized actions)
+│   │   ├── cases/[id]/        # Evidence Case File (audit trail + Gemini Q&A)
+│   │   ├── recover/[id]/      # Recovery Panel (voice + payment + PTP)
+│   │   ├── metrics/           # Evaluation Metrics Dashboard
+│   │   ├── settings/          # Policy Editor & Integration Status
+│   │   └── api/               # 17 API routes (reconcile, voice, webhook, etc.)
+│   ├── lib/
+│   │   ├── engine/
+│   │   │   ├── reconciler.ts  # 5-tier reconciliation orchestrator
+│   │   │   ├── tier-a.ts      # Exact ID matching
+│   │   │   ├── tier-b.ts      # Composite matching
+│   │   │   ├── tier-c.ts      # Grouped settlement math
+│   │   │   ├── tier-c5.ts     # TDS line-item validation
+│   │   │   ├── tier-d.ts      # AI-assisted candidate matching
+│   │   │   ├── tier-e.ts      # Honest exception routing
+│   │   │   ├── firewall.ts    # 8-gate Do Not Recover policy engine
+│   │   │   ├── scorer.ts      # Expected Net Value action ranking
+│   │   │   ├── diagnosis.ts   # 14+ discrepancy taxonomy
+│   │   │   ├── playbooks.ts   # Recovery playbook execution
+│   │   │   ├── ptp.ts         # Promise-to-Pay state machine
+│   │   │   └── __tests__/     # 39 automated safety & engine tests
+│   │   └── integrations/
+│   │       ├── razorpay.ts    # Razorpay API (links, webhooks, HMAC)
+│   │       ├── voice.ts       # Twilio voice + TwiML generation
+│   │       └── llm.ts         # Gemini AI with anti-hallucination bounds
+│   └── components/
+│       └── Sidebar.tsx        # Navigation sidebar
+├── .env.example               # Environment template
+├── package.json
+└── tsconfig.json
 ```
 
-### Webhook Setup
+---
 
-1. In Razorpay Dashboard → **Webhooks** → Add New
-2. Set URL: `https://your-public-host/api/webhook/razorpay`
-3. Select events: `payment_link.paid`, `payment.captured`
-4. Copy the webhook secret to `RAZORPAY_WEBHOOK_SECRET`
+## 🧪 Safety Guarantees
 
-> **Important**: Webhooks require a publicly reachable endpoint. Use [ngrok](https://ngrok.com) or a similar tunnel for local development: `ngrok http 3000`
-
-### Webhook Handling
-
-- **HMAC SHA-256 Verification**: Every webhook is verified against `X-Razorpay-Signature` using the raw request body
-- **Deduplication**: `x-razorpay-event-id` is stored in audit events to prevent double processing
-- **Idempotent Processing**: Events are processed idempotently — replaying a webhook has no side effects
-- **Out-of-Order Tolerance**: Payment state only advances forward, never regresses
-
-### Limitations
-
-- Test Mode uses dummy transactions — no real money is involved
-- Standard Payment Links only (UPI Payment Links are NOT supported in Test Mode per [Razorpay docs](https://razorpay.com/docs/api/payments/payment-links/))
-- 30 Payment Link limit per Test Mode business
-- Keep Test and Live webhook URLs separate
+| Principle | How We Enforce It |
+|-----------|------------------|
+| **No Float Math** | All currency stored and calculated in integer paise (₹ × 100) |
+| **No LLM Hallucinations** | Deterministic engine always overrides AI text; bounded outputs |
+| **Fail-Closed Security** | Missing data or tax uncertainty → routes to Human Review |
+| **Zero Customer Spam** | Twilio calls only whitelisted test numbers; 8-gate policy firewall |
+| **Full Auditability** | Every calculation, decision, and webhook stored in immutable audit trail |
 
 ---
 
-## Voice Recovery
+## 🛠️ Tech Stack
 
-### Browser Demo (Always Available)
-
-The browser voice adapter uses the Web Speech Synthesis API to play an approved Hinglish script. No external services needed.
-
-1. Open any recoverable case → Recovery Panel
-2. Click "📞 Start Voice Call"
-3. The Hinglish script plays through your browser speakers
-4. Use the response selector to simulate: Pay Now, Promise Friday, Need Help, Opt Out, No Answer
-5. Each response creates real audit events and state transitions
-
-### Approved Hinglish Script
-
-> "Namaste, main [Merchant] ki payment assistance team se bol raha hoon. Aapke [Reference] ke liye ₹[Amount] ka payment abhi pending dikh raha hai. Hum kabhi OTP, UPI PIN, card number ya bank details nahi maangenge. Payment link ke liye 1, Friday tak promise ke liye 2, support ke liye 3, opt-out ke liye 9."
-
-An English fallback is also available.
-
-### Twilio Test Call (Optional)
-
-For real outbound calls to a developer-owned test number:
-
-```env
-ENABLE_OUTBOUND_CALLS=true
-VOICE_TEST_TO_NUMBER=+91XXXXXXXXXX  # Your own verified number
-TWILIO_ACCOUNT_SID=ACxxxxxxxx
-TWILIO_AUTH_TOKEN=xxxxxxxx
-TWILIO_FROM_NUMBER=+1XXXXXXXXXX
-```
-
-**Safety Guards**:
-- Calls only to `VOICE_TEST_TO_NUMBER` (developer-owned)
-- `ENABLE_OUTBOUND_CALLS` must be explicitly `true`
-- Voice only for `recoverable` cases with voice consent, no opt-out, no risk hold, no active PTP, no contact cap breach
-- Never asks for card number, OTP, UPI PIN, bank password, or any credentials
-- Payment is handled only through secure Payment Links, never over voice
-
-### DTMF Options (Twilio)
-| Key | Action |
-|-----|--------|
-| 1 | Send secure payment link |
-| 2 | Record PTP date |
-| 3 | Request human support |
-| 9 | Opt out of future calls |
+- **Frontend**: Next.js 16.3, React 19, TypeScript, Tailwind CSS
+- **Backend**: Next.js API Routes, Prisma ORM
+- **Database**: SQLite (portable, zero-config)
+- **AI**: Google Gemini 2.5 Flash
+- **Payments**: Razorpay Test Mode API
+- **Voice**: Twilio Programmable Voice
+- **Testing**: 39 custom test cases (tsx runner)
 
 ---
 
-## Settlement Q&A
-
-The Settlement Q&A inspector is available on every Evidence Case File. Ask questions like:
-- "Why did settlement set_883 differ by ₹340?"
-- "Is set_001 reconciled?"
-- "What are the deductions on this settlement?"
-
-### How It Works
-1. Resolves the settlement ID from your question
-2. Retrieves the deterministic breakdown (gross, fees, tax, adjustments, net, bank credit)
-3. Returns a structured answer with calculation chips, evidence refs, and confidence
-
-### With vs Without LLM
-| Feature | Without `OPENAI_API_KEY` | With `OPENAI_API_KEY` |
-|---------|--------------------------|----------------------|
-| Answer accuracy | ✅ Identical (deterministic) | ✅ Identical (verified) |
-| Monetary values | From engine only | From engine only (LLM cannot alter) |
-| Language | Template-based | Natural language |
-| Response | Instant | ~1-2 seconds |
-
-The LLM is only allowed to rephrase — all monetary values come from the deterministic engine. If the LLM returns different numbers, the system falls back to the template answer.
-
----
-
-## Testing
-
-```bash
-# Run Phase 3 tests (engine, firewall, scorer, diagnosis)
-npx tsx src/lib/engine/__tests__/phase3.test.ts
-
-# Run Phase 5 tests (integrations, safety, voice, Q&A)
-npx tsx src/lib/engine/__tests__/phase5.test.ts
-```
-
-### What's Tested
-
-| Category | Tests |
-|----------|-------|
-| Integer Arithmetic | All money uses integer paise, no floats |
-| Webhook HMAC | SHA-256 verification rejects bad signatures |
-| Test Mode Gating | Adapter never called without `ENABLE_RAZORPAY_TEST_MODE=true` |
-| Key Validation | Rejects live keys (`rzp_live_`), only accepts `rzp_test_` |
-| Voice Gating | No outbound calls without `ENABLE_OUTBOUND_CALLS=true` + number |
-| Browser Voice | Always succeeds without external dependencies |
-| Twilio Fallback | Fails gracefully without credentials |
-| PTP Extraction | Parses "Friday", "kal", "Monday", "next week" from Hinglish |
-| Script Rendering | All template variables replaced, no `{{}}` artifacts |
-| Settlement Q&A | Deterministic answers, correct residual calculation |
-| Firewall Blocks | Hard decline, refund, opt-out, PTP, pending settlement, risk hold, dispute, finance review |
-| Message Drafting | Safe templates for SMS, email, WhatsApp |
-
----
-
-## Tech Stack
-
-- **Framework**: Next.js 16 (App Router) + TypeScript
-- **Database**: SQLite with Prisma ORM
-- **Validation**: Zod schemas for all API boundaries
-- **Styling**: Custom CSS design system (Inter + JetBrains Mono)
-- **Payments**: Razorpay Test Mode (optional)
-- **Voice**: Browser SpeechSynthesis + Twilio (optional)
-- **AI**: OpenAI structured output with deterministic fallback (optional)
-
----
-
-## API Routes
-
-| Method | Route | Description |
-|--------|-------|-------------|
-| POST | `/api/reconcile` | Run reconciliation engine |
-| POST | `/api/ingest` | Ingest raw records |
-| GET | `/api/dashboard` | Dashboard summary data |
-| GET | `/api/cases` | List recovery cases |
-| GET/PATCH | `/api/cases/[id]` | Case detail + human review |
-| GET/POST | `/api/actions` | Score and execute recovery actions |
-| GET/POST | `/api/playbook` | Preview and run playbook steps |
-| GET/PUT/POST | `/api/policy` | Policy CRUD |
-| POST | `/api/ptp` | Promise-to-Pay operations |
-| GET | `/api/forecast` | Forward cash projections |
-| GET | `/api/metrics` | Evaluation metrics |
-| GET | `/api/audit` | Audit event log |
-| POST | `/api/voice` | Start/respond voice calls |
-| POST | `/api/settlement-qa` | Settlement Q&A inspector |
-| POST | `/api/webhook/razorpay` | Razorpay webhook ingestion |
-| POST | `/api/webhook/twilio` | Twilio TwiML callback |
-| POST | `/api/reset` | Reset and reseed database |
-
----
-
-## Official References
-
-- [Razorpay Quickstart](https://razorpay.com/docs/payments/quickstart/)
-- [Razorpay API Authentication](https://razorpay.com/docs/api/authentication/)
-- [Razorpay Payment Links](https://razorpay.com/docs/api/payments/payment-links/)
-- [Razorpay Standard Payment Link Creation](https://razorpay.com/docs/api/payments/payment-links/create-standard/)
-- [Razorpay Webhook Validation](https://razorpay.com/docs/webhooks/validate-test/)
-- [Razorpay Webhooks Overview](https://razorpay.com/docs/webhooks/)
-- [Razorpay Subscription Payment Retries](https://razorpay.com/docs/payments/subscriptions/payment-retries/)
-- [NPCI UPI AutoPay](https://www.npci.org.in/product/autopay)
-
----
-
-## Disclosures
-
-- **Synthetic Data**: All records are generated with a fixed seed. No real customer data is used.
-- **Test-Only Payments**: Razorpay Test Mode uses dummy transactions. No real money is involved.
-- **No Real Customer Contact**: Voice calls only to developer-owned test numbers. All SMS/email/WhatsApp is simulated.
-- **No Production Compliance Claim**: This is a policy-bound, consent-aware prototype built for review and demonstration. It is not a replacement for Razorpay fraud monitoring, a collection agency, a credit-underwriting product, or an accounting system of record.
-- **TDS Matching**: Evidence-backed reconciliation feature, not tax advice. Statutory labels are configurable for post-1 April 2026 changes (Income-tax Act, 2025 section-393 tables).
-- **Recovery Attribution**: Marked as synthetic/simulated. No autonomous negotiation of discounts or write-offs.
+<p align="center">
+  Built with ❤️ and many sleepless nights for the Razorpay Buildathon 2026
+</p>

@@ -64,19 +64,25 @@ export async function createRecoveryPaymentLink(
   prisma: PrismaClient,
   caseId: string,
 ): Promise<PaymentLinkResult> {
-  const recoveryCase = await prisma.recoveryCase.findUnique({ where: { id: caseId } });
+  let recoveryCase = await prisma.recoveryCase.findUnique({ where: { id: caseId } });
+  if (!recoveryCase) {
+    recoveryCase = await prisma.recoveryCase.findFirst({ where: { caseNumber: caseId } });
+  }
   if (!recoveryCase) {
     return { success: false, simulated: true, linkId: '', linkUrl: '', referenceId: '', amountPaise: 0, receipt: '', error: 'Case not found' };
   }
 
-  const referenceId = `cic-${caseId.slice(0, 8)}`;
-  const idempotencyKey = `plink-${caseId}-${Date.now()}`;
-  const amountPaise = recoveryCase.outstandingAmountPaise;
+  const resolvedCaseId = recoveryCase.id;
+  const referenceId = `cic-${resolvedCaseId.slice(0, 8)}-${Date.now().toString(36)}`;
+  const amountPaise = recoveryCase.outstandingAmountPaise > 0
+    ? recoveryCase.outstandingAmountPaise
+    : (recoveryCase.grossAmountPaise && recoveryCase.grossAmountPaise > 0 ? recoveryCase.grossAmountPaise : 6000000);
+  const idempotencyKey = `plink-${resolvedCaseId}-${Date.now()}`;
 
   if (isTestModeEnabled()) {
-    return await createRealPaymentLink(prisma, caseId, referenceId, idempotencyKey, amountPaise, recoveryCase.caseNumber);
+    return await createRealPaymentLink(prisma, resolvedCaseId, referenceId, idempotencyKey, amountPaise, recoveryCase.caseNumber);
   } else {
-    return await createSimulatedPaymentLink(prisma, caseId, referenceId, idempotencyKey, amountPaise, recoveryCase.caseNumber);
+    return await createSimulatedPaymentLink(prisma, resolvedCaseId, referenceId, idempotencyKey, amountPaise, recoveryCase.caseNumber);
   }
 }
 
@@ -123,7 +129,12 @@ async function createRealPaymentLink(
 
     if (!response.ok) {
       console.error('Razorpay API error:', data);
-      // Fall back to simulated
+      // If error is duplicate reference_id, retry with fresh random reference_id
+      if (data?.error?.description?.includes('reference_id')) {
+        const retryRef = `cic-${caseId.slice(0, 6)}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+        return await createRealPaymentLink(prisma, caseId, retryRef, `${idempotencyKey}-r`, amountPaise, caseNumber);
+      }
+      // Fall back to simulated only if API truly unavailable
       return await createSimulatedPaymentLink(prisma, caseId, referenceId, idempotencyKey, amountPaise, caseNumber);
     }
 
@@ -364,10 +375,14 @@ export async function processWebhookEvent(
             outcomeReference: paymentEntity?.id || linkEntity.id,
           },
         });
-        // Update case state
+        // Update case state — fully close and zero out outstanding
         await prisma.recoveryCase.update({
           where: { id: action.recoveryCaseId },
-          data: { cashState: 'matched' },
+          data: {
+            cashState: 'closed',
+            outstandingAmountPaise: 0,
+            closedReason: 'Recovered via Razorpay payment link (webhook confirmed)',
+          },
         });
         // Audit the recovery
         await prisma.auditEvent.create({

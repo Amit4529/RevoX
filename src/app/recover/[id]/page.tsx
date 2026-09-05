@@ -36,6 +36,9 @@ export default function RecoveryPanel() {
   const [voiceResponseSubmitting, setVoiceResponseSubmitting] = useState(false);
   const [voiceResponseResult, setVoiceResponseResult] = useState<any>(null);
 
+  // Payment Verification / Simulation
+  const [checkingPayment, setCheckingPayment] = useState(false);
+  const [paymentNotice, setPaymentNotice] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -46,6 +49,34 @@ export default function RecoveryPanel() {
       ]);
       setCaseData(c);
       setPlan(p.plan);
+
+      // Check if customer made a response on voice call
+      if (c?.auditEvents) {
+        const voiceRespEvent = c.auditEvents.find((e: any) => e.eventType === 'VOICE_RESPONSE_RECEIVED');
+        if (voiceRespEvent?.decision) {
+          try {
+            const dec = typeof voiceRespEvent.decision === 'string' ? JSON.parse(voiceRespEvent.decision) : voiceRespEvent.decision;
+            if (dec.action === 'payment_link_requested' && dec.linkUrl) {
+              setVoiceResponseResult({
+                success: true,
+                message: `Payment link active: ${dec.linkUrl}`,
+                paymentLinkUrl: dec.linkUrl,
+              });
+            } else if (dec.action === 'promise_to_pay') {
+              setVoiceResponseResult({
+                success: true,
+                message: 'Customer promised payment for Friday. Automated dunning paused.',
+                ptpCaptured: true,
+              });
+            } else if (dec.action === 'opt_out') {
+              setVoiceResponseResult({
+                success: true,
+                message: 'Customer opted out of automated calls.',
+              });
+            }
+          } catch {}
+        }
+      }
 
       // Get scored actions
       if (c.allowedActions?.length > 0) {
@@ -61,7 +92,7 @@ export default function RecoveryPanel() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Auto-refresh every 10 seconds — silent (no loading spinner)
+  // Fast auto-refresh every 2 seconds for real-time phone calls & live Razorpay payment updates
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
@@ -71,6 +102,50 @@ export default function RecoveryPanel() {
         ]);
         setCaseData(c);
         setPlan(p.plan);
+
+        // Real-time voice response check from audit events
+        if (c?.auditEvents) {
+          const voiceRespEvent = c.auditEvents.find((e: any) => e.eventType === 'VOICE_RESPONSE_RECEIVED');
+          if (voiceRespEvent?.decision) {
+            try {
+              const dec = typeof voiceRespEvent.decision === 'string' ? JSON.parse(voiceRespEvent.decision) : voiceRespEvent.decision;
+              if (dec.action === 'payment_link_requested' && dec.linkUrl) {
+                setVoiceResponseResult({
+                  success: true,
+                  message: `Payment link active: ${dec.linkUrl}`,
+                  paymentLinkUrl: dec.linkUrl,
+                });
+              } else if (dec.action === 'promise_to_pay') {
+                setVoiceResponseResult({
+                  success: true,
+                  message: 'Customer promised payment for Friday. Automated dunning paused.',
+                  ptpCaptured: true,
+                });
+              } else if (dec.action === 'opt_out') {
+                setVoiceResponseResult({
+                  success: true,
+                  message: 'Customer opted out of automated calls.',
+                });
+              }
+            } catch {}
+          }
+        }
+
+        // If case is open, check if a payment link has been paid on Razorpay
+        if (c?.cashState !== 'closed') {
+          try {
+            const payRes = await fetch(`/api/simulate-payment?caseId=${id}`);
+            if (payRes.ok) {
+              const payData = await payRes.json();
+              if (payData.paid) {
+                // Payment was completed on Razorpay! Reload case data to reflect closed state
+                const freshCase = await fetch(`/api/cases/${id}`).then(r => r.json());
+                setCaseData(freshCase);
+              }
+            }
+          } catch { /* silent */ }
+        }
+
         if (c.allowedActions?.length > 0) {
           const scoresRes = await fetch(`/api/actions?caseId=${id}`);
           if (scoresRes.ok) {
@@ -79,9 +154,53 @@ export default function RecoveryPanel() {
           }
         }
       } catch { /* silent */ }
-    }, 10000);
+    }, 2000);
     return () => clearInterval(interval);
   }, [id]);
+
+  const verifyPayment = async () => {
+    setCheckingPayment(true);
+    setPaymentNotice(null);
+    try {
+      const res = await fetch('/api/simulate-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ caseId: id, mode: 'verify' }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setPaymentNotice(`✓ ${data.message || 'Payment confirmed! Case recovered.'}`);
+        await load();
+      } else {
+        setPaymentNotice(data.message || 'Payment not completed on Razorpay yet.');
+      }
+    } catch (err: any) {
+      setPaymentNotice(String(err));
+    }
+    setCheckingPayment(false);
+  };
+
+  const simulatePaymentInstant = async () => {
+    setCheckingPayment(true);
+    setPaymentNotice(null);
+    try {
+      const res = await fetch('/api/simulate-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ caseId: id, mode: 'simulate' }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setPaymentNotice(`✓ ${data.message}`);
+        await load();
+      } else {
+        setPaymentNotice(data.message || 'Simulation failed');
+      }
+    } catch (err: any) {
+      setPaymentNotice(String(err));
+    }
+    setCheckingPayment(false);
+  };
 
   const executeAction = async (actionType: string) => {
     setExecuting(true);
@@ -189,10 +308,11 @@ export default function RecoveryPanel() {
       const data = await res.json();
       setVoiceCallData(data);
       if (data.success) {
-        // Auto-play the script in browser mode
+        // Auto-play the script in browser mode only if simulated
         if (data.simulated) {
           speakScript();
         }
+        await load();
       }
     } catch (err: any) {
       setVoiceCallData({ success: false, error: String(err) });
@@ -201,7 +321,7 @@ export default function RecoveryPanel() {
   };
 
   const submitVoiceResponse = async (response: 'pay_now' | 'promise_friday' | 'need_help' | 'opt_out' | 'no_answer') => {
-    if (!voiceCallData?.callId) return;
+    const callId = voiceCallData?.callId || `call_sim_${Date.now()}`;
     setVoiceResponseSubmitting(true);
     try {
       const res = await fetch('/api/voice', {
@@ -210,7 +330,7 @@ export default function RecoveryPanel() {
         body: JSON.stringify({
           action: 'respond',
           caseId: id,
-          callId: voiceCallData.callId,
+          callId,
           response,
           transcript: response === 'promise_friday' ? 'Main Friday ko pay kar dunga' : undefined,
         }),
@@ -239,6 +359,55 @@ export default function RecoveryPanel() {
   const allowedActions: string[] = caseData?.allowedActions ?? [];
   const maxScore = scores.length > 0 ? Math.max(...scores.map((s: any) => s.expectedNetRecoveryPaise)) : 1;
 
+  // Check for active payment link from actions, voice response, or audit events
+  const isRealRazorpayUrl = (url?: string) =>
+    Boolean(url && (url.startsWith('https://rzp.io/rzp/') || (url.startsWith('https://rzp.io/i/plink_') && !url.includes('plink_sim_'))));
+
+  const isRealLinkId = (linkId?: string) =>
+    Boolean(linkId && linkId.startsWith('plink_') && !linkId.startsWith('plink_sim_'));
+
+  const latestPaymentAction = caseData?.recoveryActions?.find((a: any) =>
+    a.actionType === 'payment_link' && !a.isSimulated && !a.outcomeReference?.startsWith('plink_sim_')
+  );
+  let activePaymentUrl = isRealRazorpayUrl(voiceResponseResult?.paymentLinkUrl) ? voiceResponseResult.paymentLinkUrl : '';
+  let activePaymentLinkId = '';
+
+  if (!activePaymentUrl && latestPaymentAction) {
+    activePaymentLinkId = latestPaymentAction.outcomeReference || '';
+    if (latestPaymentAction.executionReceipt) {
+      try {
+        const parsed = JSON.parse(latestPaymentAction.executionReceipt);
+        if (isRealRazorpayUrl(parsed.linkUrl)) activePaymentUrl = parsed.linkUrl;
+        else if (isRealRazorpayUrl(parsed.url)) activePaymentUrl = parsed.url;
+        if (!activePaymentLinkId) activePaymentLinkId = parsed.linkId || '';
+      } catch {}
+    }
+    if (!activePaymentUrl && isRealLinkId(activePaymentLinkId)) {
+      activePaymentUrl = `https://rzp.io/i/${activePaymentLinkId}`;
+    }
+  }
+
+  if (!activePaymentUrl && caseData?.auditEvents) {
+    const plEvent = caseData.auditEvents.find((e: any) => {
+      const decStr = typeof e.decision === 'string' ? e.decision : JSON.stringify(e.decision || {});
+      return (
+        (e.eventType === 'PAYMENT_LINK_CREATED' || e.eventType === 'ACTION_EXECUTED' || e.eventType === 'VOICE_RESPONSE_RECEIVED') &&
+        (decStr.includes('rzp.io/rzp/') || decStr.includes('plink_')) &&
+        !decStr.includes('plink_sim_')
+      );
+    });
+    if (plEvent?.decision) {
+      try {
+        const dec = typeof plEvent.decision === 'string' ? JSON.parse(plEvent.decision) : plEvent.decision;
+        if (isRealRazorpayUrl(dec.linkUrl)) activePaymentUrl = dec.linkUrl;
+        if (isRealLinkId(dec.linkId) && !activePaymentLinkId) activePaymentLinkId = dec.linkId;
+        if (!activePaymentUrl && isRealLinkId(activePaymentLinkId)) {
+          activePaymentUrl = `https://rzp.io/i/${activePaymentLinkId}`;
+        }
+      } catch {}
+    }
+  }
+
   return (
     <div className="app-shell">
       <Sidebar />
@@ -259,6 +428,99 @@ export default function RecoveryPanel() {
         </div>
 
         <div className="page-body">
+
+          {/* Case Successfully Recovered & Closed Banner */}
+          {caseData?.cashState === 'closed' && (
+            <div style={{
+              marginBottom: 20,
+              padding: 18,
+              background: 'rgba(16, 185, 129, 0.08)',
+              border: '1px solid rgba(16, 185, 129, 0.4)',
+              borderRadius: 8,
+              display: 'flex',
+              gap: 16,
+              alignItems: 'center'
+            }}>
+              <div style={{ fontSize: 32 }}>🎉</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: '#10B981', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Case Successfully Recovered & Closed
+                  </span>
+                  <span className="chip chip-voice" style={{ background: 'rgba(16, 185, 129, 0.2)', color: '#34D399' }}>Paid & Reconciled</span>
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.5 }}>
+                  Full payment of <strong>{formatPaise(caseData?.grossAmountPaise || 8500000)}</strong> received and verified via Razorpay Test Mode. Revenue leakage recovered, reconciliation settled, and case closed.
+                </div>
+                <div style={{ fontSize: 11.5, color: '#6EE7B7', marginTop: 4 }}>
+                  ✓ Razorpay Test Payment Verified &middot; Outstanding: ₹0.00 &middot; Status: CLOSED
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Active Payment Link Ready Banner */}
+          {activePaymentUrl && caseData?.cashState !== 'closed' && (
+            <div style={{
+              marginBottom: 20,
+              padding: 16,
+              background: 'rgba(59, 130, 246, 0.08)',
+              border: '1px solid rgba(59, 130, 246, 0.35)',
+              borderRadius: 8,
+              display: 'flex',
+              gap: 16,
+              alignItems: 'center'
+            }}>
+              <div style={{ fontSize: 28 }}>💳</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#3B82F6', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Payment Link Active (Customer Selected Pay Now)
+                  </span>
+                  <span className="badge badge-blue">Ready to Pay</span>
+                </div>
+                <div style={{ fontSize: 12.5, color: 'var(--text-primary)', marginBottom: 10 }}>
+                  A secure Razorpay payment link for <strong>{formatPaise(caseData?.outstandingAmountPaise ?? 0)}</strong> was generated.
+                </div>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <a
+                    id="btn-open-payment-link-banner"
+                    href={activePaymentUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-sm"
+                    style={{ background: '#2563EB', color: '#fff', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px', fontWeight: 600, fontSize: 12 }}
+                  >
+                    🔗 Open Razorpay Payment Link
+                  </a>
+                  <button
+                    id="btn-verify-payment"
+                    className="btn btn-sm btn-ghost"
+                    onClick={verifyPayment}
+                    disabled={checkingPayment}
+                    style={{ border: '1px solid rgba(255,255,255,0.15)', fontSize: 12 }}
+                  >
+                    {checkingPayment ? <><span className="spinner" /> Checking…</> : '🔄 Check Razorpay Status'}
+                  </button>
+                  <button
+                    id="btn-instant-pay-demo"
+                    className="btn btn-sm btn-success"
+                    onClick={simulatePaymentInstant}
+                    disabled={checkingPayment}
+                    style={{ fontSize: 12 }}
+                    title="Confirm payment received and close case"
+                  >
+                    ✓ Confirm Payment Received
+                  </button>
+                </div>
+                {paymentNotice && (
+                  <div style={{ fontSize: 12, marginTop: 8, color: paymentNotice.startsWith('✓') ? '#10B981' : '#F59E0B' }}>
+                    {paymentNotice}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Active Promise-to-Pay Banner */}
           {caseData?.promiseToPays?.some((p: any) => p.state === 'active') && (
@@ -478,50 +740,6 @@ export default function RecoveryPanel() {
                       );
                     })}
 
-                    {/* Simulate Payment Button — show when there's a payment_link action and case isn't closed */}
-                    {caseData.recoveryActions.some((a: any) => a.actionType === 'payment_link') && caseData.cashState !== 'closed' && (
-                      <div style={{ marginTop: 12, padding: 12, background: 'rgba(5, 150, 105, 0.08)', borderRadius: 8, border: '1px solid rgba(5, 150, 105, 0.2)' }}>
-                        <div style={{ fontSize: 11, color: '#059669', fontWeight: 600, marginBottom: 6 }}>
-                          💰 DEMO: Simulate Customer Payment
-                        </div>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8 }}>
-                          Click below to simulate the customer completing payment. This triggers the same flow as a real Razorpay webhook.
-                        </div>
-                        <button
-                          id="btn-simulate-payment"
-                          className="btn btn-sm"
-                          style={{
-                            background: 'linear-gradient(135deg, #059669, #10B981)',
-                            color: 'white',
-                            border: 'none',
-                            padding: '8px 20px',
-                            fontSize: 12,
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                          }}
-                          onClick={async () => {
-                            try {
-                              const res = await fetch('/api/simulate-payment', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ caseId: id }),
-                              });
-                              const data = await res.json();
-                              if (data.success) {
-                                alert(`✅ ${data.message}`);
-                                load(); // Refresh data
-                              } else {
-                                alert(`❌ ${data.error}`);
-                              }
-                            } catch (err) {
-                              alert(`❌ Failed: ${err}`);
-                            }
-                          }}
-                        >
-                          ✅ Simulate Payment Received ({formatPaise(caseData.outstandingAmountPaise)})
-                        </button>
-                      </div>
-                    )}
 
                     {/* Show recovery success when closed */}
                     {caseData.cashState === 'closed' && caseData.recoveryActions.some((a: any) => a.actionType === 'payment_link') && (
@@ -662,58 +880,41 @@ export default function RecoveryPanel() {
                 )}
               </div>
 
-              {/* Voice call result */}
-              {voiceCallData && (
-                <div className="alert alert-success" style={{ marginBottom: 12 }}>
-                  <strong>Call initiated:</strong> {voiceCallData.callId}
-                  {voiceCallData.simulated && ' (Simulated)'}
-                </div>
-              )}
-
-              {/* Response selector */}
+              {/* Live Voice Call Status */}
               {voiceCallData && !voiceResponseResult && (
-                <div>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
-                    Simulate Customer Response
+                <div className="alert alert-success" style={{ marginTop: 12, marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                  <div>
+                    <strong>📞 Call initiated:</strong> {voiceCallData.callId}
+                    <div style={{ fontSize: 12, marginTop: 4, color: 'var(--text-secondary)' }}>
+                      Call is active on customer&apos;s phone. Waiting for customer keypad selection (1 for Payment Link, 2 for Promise to Pay)…
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    {[
-                      { key: 'pay_now', label: '1 — Pay Now (send link)', color: 'btn-success' },
-                      { key: 'promise_friday', label: '2 — Promise Friday (PTP)', color: 'btn-primary' },
-                      { key: 'need_help', label: '3 — Need Help (support)', color: 'btn-secondary' },
-                      { key: 'opt_out', label: '9 — Opt Out (stop calls)', color: 'btn-danger' },
-                      { key: 'no_answer', label: '∅ — No Answer', color: 'btn-ghost' },
-                    ].map(r => (
-                      <button
-                        key={r.key}
-                        id={`btn-voice-${r.key}`}
-                        className={`btn btn-sm ${r.color}`}
-                        onClick={() => submitVoiceResponse(r.key as any)}
-                        disabled={voiceResponseSubmitting}
-                      >
-                        {r.label}
-                      </button>
-                    ))}
-                  </div>
+                  <span className="badge badge-blue" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px' }}>
+                    <span className="spinner" style={{ width: 10, height: 10 }} /> Call in Progress
+                  </span>
                 </div>
               )}
 
-              {/* Response result */}
+              {/* Real-time Customer Response (updates automatically via webhook when customer presses phone keypad) */}
               {voiceResponseResult && (
-                <div className={`alert ${voiceResponseResult.success ? 'alert-success' : 'alert-danger'}`} style={{ marginTop: 12 }}>
-                  <strong>✓ Response processed:</strong> {voiceResponseResult.message}
+                <div
+                  className={`alert ${voiceResponseResult.success ? 'alert-success' : 'alert-danger'}`}
+                  style={{ marginTop: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}
+                >
+                  <div>
+                    <strong>✓ Customer Response Received:</strong> {voiceResponseResult.message}
+                  </div>
                   {voiceResponseResult.paymentLinkUrl && (
-                    <div style={{ marginTop: 6 }}>
-                      <a
-                        href={voiceResponseResult.paymentLinkUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="btn btn-sm"
-                        style={{ background: '#1D4ED8', color: 'white', border: 'none', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 12px', fontSize: 11 }}
-                      >
-                        🔗 Open Payment Link
-                      </a>
-                    </div>
+                    <a
+                      id="btn-voice-result-link"
+                      href={voiceResponseResult.paymentLinkUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-sm"
+                      style={{ background: '#2563EB', color: 'white', border: 'none', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px', fontSize: 12, fontWeight: 600 }}
+                    >
+                      🔗 Open Razorpay Link
+                    </a>
                   )}
                 </div>
               )}

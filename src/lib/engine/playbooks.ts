@@ -13,6 +13,7 @@ import { evaluateAllActions, loadPolicy, type PolicyConfig } from './firewall';
 import { scoreAndRankActions, generateRecommendationExplanation } from './scorer';
 import { capturePTP } from './ptp';
 import { getRecommendedPlaybook, getDiagnosis } from './diagnosis';
+import { createRecoveryPaymentLink } from '../integrations/razorpay';
 import { v4 as uuid } from 'uuid';
 
 export interface PlaybookResult {
@@ -698,10 +699,17 @@ export async function executeRecoveryAction(
       executionDetails = { retryId: receipt, method: 'api_call', simulated: true };
       break;
 
-    case 'payment_link':
-      receipt = await simulatePaymentLink(caseId, recoveryCase.outstandingAmountPaise);
-      executionDetails = { linkId: receipt, url: `https://rzp.io/l/${receipt}`, expiresIn: '72h', simulated: true };
+    case 'payment_link': {
+      const linkRes = await createRecoveryPaymentLink(prisma, caseId);
+      receipt = linkRes.linkId;
+      executionDetails = {
+        linkId: linkRes.linkId,
+        url: linkRes.linkUrl,
+        expiresIn: '7d',
+        simulated: linkRes.simulated,
+      };
       break;
+    }
 
     case 'reminder_sms':
       receipt = await simulateReminder('sms', caseId);
