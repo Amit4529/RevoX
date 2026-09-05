@@ -46,24 +46,21 @@ Built over many sleepless nights — debugging voice webhooks at 3 AM, wiring re
 <!-- ADD YOUR SCREENSHOTS BELOW — replace the placeholder paths with your actual image paths -->
 
 ### Batch Command Center — Cash Bridge & Forward Forecaster
-<!-- ![Command Center](screenshots/command-center.png) -->
-`📸 Add screenshot here`
+<img width="1897" height="907" alt="image" src="https://github.com/user-attachments/assets/1f2bd20f-7869-4c92-9545-f1f3ff4720e0" />
+
 
 ### Cash Integrity Queue — Prioritized Recovery Actions
-<!-- ![Queue](screenshots/queue.png) -->
-`📸 Add screenshot here`
+<img width="1901" height="907" alt="image" src="https://github.com/user-attachments/assets/c7277bd0-eeb2-49f7-b662-77757041fb2f" />
+<img width="1917" height="907" alt="image" src="https://github.com/user-attachments/assets/b379d37e-45a3-413e-a48b-ee2181cf099a" />
+<img width="1895" height="911" alt="image" src="https://github.com/user-attachments/assets/683bd877-e195-4c0f-b6e1-3ce9f3394d51" />
 
 ### Evidence Case File — Full Audit Trail & Gemini AI Q&A
 <!-- ![Case File](screenshots/case-file.png) -->
 `📸 Add screenshot here`
 
 ### Recovery Panel — Live Voice Call & Payment Link
-<!-- ![Recovery Panel](screenshots/recovery-panel.png) -->
-`📸 Add screenshot here`
-
-### Evaluation Metrics Dashboard
-<!-- ![Metrics](screenshots/metrics.png) -->
-`📸 Add screenshot here`
+<img width="1900" height="906" alt="image" src="https://github.com/user-attachments/assets/7e10ff78-6c37-4130-bee2-72086944a61f" />
+<img width="1916" height="907" alt="image" src="https://github.com/user-attachments/assets/24ba940e-8d5a-4a08-8778-a52140258fbe" />
 
 ---
 
